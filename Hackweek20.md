@@ -3,6 +3,7 @@ I record notes and thoughts about my Hackweek 20 topic [Leveraging Ceph in the H
 Table of Contents
 =================
 
+   * [Table of Contents](#table-of-contents)
    * [Installation](#installation)
       * [Prepare a Kubernetes cluster](#prepare-a-kubernetes-cluster)
       * [Deploy](#deploy)
@@ -11,6 +12,7 @@ Table of Contents
          * [Deploy Harvester helm chart](#deploy-harvester-helm-chart)
          * [Deploy Rook-Ceph](#deploy-rook-ceph)
          * [Create a storage class](#create-a-storage-class)
+         * [GUI changes](#gui-changes)
    * [Other thoughts](#other-thoughts)
       * [Use the CDI "Smart Clone" feature to provision VM disks](#use-the-cdi-smart-clone-feature-to-provision-vm-disks)
          * [Deploy VMs with smart clone feature](#deploy-vms-with-smart-clone-feature)
@@ -111,6 +113,12 @@ $ kubectl create -f storageclass.yaml
 ```
 
 At this point, we should be able to deploy VMs with the harvester UI. And the VMs will use RBD images as their disks.
+
+
+### GUI changes
+
+The storage class needs to be changed to `rook-ceph` in the GUI code, please visit [here](https://github.com/bk201/harvester-ui/commits/hackweek20) for more information.
+The image [bk201z/harvester:hackweek20](https://hub.docker.com/r/bk201z/harvester/tags?page=1&ordering=last_updated) included in the Helm chart contains this GUI change.
 
 # Other thoughts
 
