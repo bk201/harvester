@@ -26,7 +26,7 @@ var (
 	ServerVersion          = NewSetting("server-version", "dev")
 	UIIndex                = NewSetting("ui-index", "https://releases.rancher.com/harvester-ui/latest/index.html")
 	UIPath                 = NewSetting("ui-path", "/usr/share/rancher/harvester")
-	APIUISource            = NewSetting("api-ui-source", "auto") // Options are 'auto', 'external' or 'bundled'
+	APIUISource            = NewSetting("api-ui-source", "bundled") // Options are 'auto', 'external' or 'bundled'
 	VolumeSnapshotClass    = NewSetting("volume-snapshot-class", "longhorn")
 	BackupTargetSet        = NewSetting(BackupTargetSettingName, InitBackupTargetToString())
 )
