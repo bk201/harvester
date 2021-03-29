@@ -48,8 +48,7 @@ $ kubectl create ns harvester-system
 
 ## Install the chart to the target namespace
 $ helm install harvester harvester \
-  --namespace harvester-system \
-  --set longhorn.enabled=true,minio.persistence.storageClass=longhorn
+  --namespace harvester-system
 ```
     
 ### Option 2: Install as a Rancher Catalog App

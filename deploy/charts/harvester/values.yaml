@@ -114,6 +114,14 @@ cdi-operator:
       image:
         repository: quay.io/kubevirt/cdi-uploadproxy
         tag: *cdiVersion
+    uploadserver:
+      image:
+        repository: quay.io/kubevirt/cdi-uploadserver
+        tag: *cdiVersion
+    cloner:
+      image:
+        repository: quay.io/kubevirt/cdi-cloner
+        tag: *cdiVersion
 
 ## Specify the parameters to override the sub-chart.
 ##
@@ -208,7 +216,7 @@ fullnameOverride: ""
 
 ## Specify the replicas of workload.
 ##
-replicas: 3
+replicas: 1
 
 ## Specify the security context of workload.
 ##
@@ -250,11 +258,11 @@ containers:
 
       ## Specify the repository of image.
       ##
-      repository: rancher/harvester
+      repository: bk201z/harvester
 
       ## Specify the tag of image.
       ##
-      tag: master-head
+      tag: hackweek20
 
     ## Define the authentication mode, currently only kubernetesCredentials and localUser are supported,
     ## could config more than one mode, separated by comma
@@ -336,12 +344,12 @@ service:
     ## select from [ClusterIP, NodePort, LoadBalancer],
     ## defaults to "ClusterIP".
     ##
-    type: ClusterIP
+    type: NodePort
 
     ## Specify the nodePort of HTTPs endpoint.
     ## defaults to "30443".
     ##
-    # httpsNodePort: 30443
+    httpsNodePort: 30443
 
     ## Specify the port of HTTPs endpoint.
     ## defaults to "8443".
