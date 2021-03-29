@@ -1,0 +1,48 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: vm-cirros-datavolume
+  name: vm-cirros-datavolume
+spec:
+  dataVolumeTemplates:
+  - kind: DataVolume
+    apiVersion: cdi.kubevirt.io/v1beta1
+    metadata:
+      name: cirros-dv
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+        volumeMode: Block
+        storageClassName: rook-ceph
+      source:
+        pvc:
+          name: cirros
+          namespace: default
+  running: true
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: vm-datavolume
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: datavolumevolume
+        machine:
+          type: ""
+        resources:
+          requests:
+            memory: 256M
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - dataVolume:
+          name: cirros-dv
+        name: datavolumevolume
+

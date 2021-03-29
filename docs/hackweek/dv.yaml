@@ -1,0 +1,20 @@
+---
+apiVersion: cdi.kubevirt.io/v1beta1
+kind: DataVolume
+metadata:
+  name: cirros
+spec:
+  pvc:
+    accessModes:
+    - ReadWriteOnce
+    resources:
+      requests:
+        storage: 1Gi
+    storageClassName: rook-ceph
+    volumeMode: Block
+  source:
+    http:
+      #      url: http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img
+      #      url: http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img
+      url: http://192.168.2.106/cirros-0.5.1-x86_64-disk.img
+
