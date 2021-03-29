@@ -1,4 +1,4 @@
-I record notes and thoughts about my Hackweek 21 topic [Leveraging Ceph in the Harvester project](https://hackweek.suse.com/20/projects/leveraging-ceph-in-the-harvester-project) here.
+I record notes and thoughts about my Hackweek 20 topic [Leveraging Ceph in the Harvester project](https://hackweek.suse.com/20/projects/leveraging-ceph-in-the-harvester-project) here.
 
 Table of Contents
 =================
@@ -24,7 +24,7 @@ Created by [gh-md-toc](https://github.com/ekalinin/github-markdown-toc)
 
 # Installation
 
-Assume the workspace is located at `~/hackweek21` directory.
+Assume the workspace is located at `~/hackweek20` directory.
 
 ## Prepare a Kubernetes cluster
 
@@ -37,9 +37,9 @@ I use Vagrant to deploy a 4-node k3s cluster for Ceph.
 ### Clone this project and switch to `hackweek20` branch
 
 ```
-% cd ~/hackweek21
+% cd ~/hackweek20
 $ git clone https://github.com/bk201/harvester
-$ cd harvester && git checkout hackweek21
+$ cd harvester && git checkout hackweek20
 ```
 
 ### Export your k8s config path to the `KUBECONFIG` environment variable
@@ -64,10 +64,10 @@ https://<one_of_node_ip>:30443
 Clone Rook project:
 
 ```
-$ cd ~/hackweek21
+$ cd ~/hackweek20
 $ git clone https://github.com/bk201/rook
 $ git clone https://github.com/rook/rook
-$ cd rook && git checkout hackweek21
+$ cd rook && git checkout hackweek20
 ```
 
 Apply Rool-Ceph CRDs and create the operator:
