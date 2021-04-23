@@ -12,6 +12,7 @@ import (
 	"github.com/harvester/harvester/pkg/api/node"
 	"github.com/harvester/harvester/pkg/api/restore"
 	"github.com/harvester/harvester/pkg/api/setting"
+	"github.com/harvester/harvester/pkg/api/supportbundle"
 	"github.com/harvester/harvester/pkg/api/upgrade"
 	"github.com/harvester/harvester/pkg/api/user"
 	"github.com/harvester/harvester/pkg/api/vm"
@@ -43,5 +44,6 @@ func Setup(ctx context.Context, server *server.Server, controllers *server.Contr
 		network.RegisterSchema,
 		node.RegisterSchema,
 		datavolume.RegisterSchema,
-		restore.RegisterSchema)
+		restore.RegisterSchema,
+		supportbundle.RegisterSchema)
 }

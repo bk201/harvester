@@ -8,26 +8,29 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/rancher/apiserver/pkg/urlbuilder"
+	steveauth "github.com/rancher/steve/pkg/auth"
 	"github.com/rancher/steve/pkg/server/router"
-	"k8s.io/client-go/rest"
 
 	"github.com/harvester/harvester/pkg/api/auth"
 	"github.com/harvester/harvester/pkg/api/proxy"
+	"github.com/harvester/harvester/pkg/api/supportbundle"
 	"github.com/harvester/harvester/pkg/config"
 	"github.com/harvester/harvester/pkg/server/ui"
 )
 
 type Router struct {
-	scaled     *config.Scaled
-	restConfig *rest.Config
-	options    config.Options
+	scaled         *config.Scaled
+	server         *HarvesterServer
+	options        config.Options
+	authMiddleware steveauth.Middleware
 }
 
-func NewRouter(scaled *config.Scaled, restConfig *rest.Config, options config.Options) (*Router, error) {
+func NewRouter(scaled *config.Scaled, server *HarvesterServer, options config.Options, authMiddleware steveauth.Middleware) (*Router, error) {
 	return &Router{
-		scaled:     scaled,
-		restConfig: restConfig,
-		options:    options,
+		scaled:         scaled,
+		server:         server,
+		options:        options,
+		authMiddleware: authMiddleware,
 	}, nil
 }
 
@@ -44,7 +47,7 @@ func (r *Router) Routes(h router.Handlers) http.Handler {
 
 	m.Path("/v1/{type}").Queries("action", "{action}").Handler(h.K8sResource) //adds collection action support
 
-	loginHandler := auth.NewLoginHandler(r.scaled, r.restConfig)
+	loginHandler := auth.NewLoginHandler(r.scaled, r.server.RESTConfig)
 	m.Path("/v1-public/auth").Handler(loginHandler)
 	m.Path("/v1-public/auth-modes").HandlerFunc(auth.ModeHandler)
 
@@ -52,6 +55,14 @@ func (r *Router) Routes(h router.Handlers) http.Handler {
 	m.Handle("/dashboard/", vueUI.IndexFile())
 	m.PathPrefix("/dashboard/").Handler(vueUI.IndexFileOnNotFound())
 	m.PathPrefix("/api-ui").Handler(vueUI.ServeAsset())
+
+	sbDownloadHandler := supportbundle.NewDownloadHandler(r.server.Context, r.server.namespace, r.scaled)
+	downloadRoute := m.Path("/v1/supportbundles/{bundleName}/download").Methods("GET")
+	if r.authMiddleware != nil {
+		downloadRoute.Handler(r.authMiddleware(sbDownloadHandler))
+	} else {
+		downloadRoute.Handler(sbDownloadHandler)
+	}
 
 	if r.options.RancherEmbedded {
 		host, err := parseRancherServerURL(r.options.RancherURL)
