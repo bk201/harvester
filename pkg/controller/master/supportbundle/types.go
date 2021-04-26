@@ -1,12 +1,10 @@
 package supportbundle
 
 const (
-	StateNone        = ""
-	StateGenerating  = "generating"
-	StateManagerDone = "managerdone"
-	StateAgentDone   = "agentdone"
-	StateError       = "error"
-	StateReady       = "ready"
+	StateNone       = ""
+	StateGenerating = "generating"
+	StateError      = "error"
+	StateReady      = "ready"
 
 	// labels
 	HarvesterNodeLabelKey   = "harvesterhci.io/managed"

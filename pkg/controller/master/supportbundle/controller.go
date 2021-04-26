@@ -5,6 +5,7 @@ import (
 
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	"github.com/harvester/harvester/pkg/generated/controllers/harvesterhci.io/v1beta1"
+	"github.com/harvester/harvester/pkg/settings"
 	ctlappsv1 "github.com/rancher/wrangler/pkg/generated/controllers/apps/v1"
 	ctlcorev1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	"github.com/sirupsen/logrus"
@@ -30,7 +31,7 @@ func (h *Handler) OnSupportBundleChanged(key string, sb *harvesterv1.SupportBund
 	switch sb.Status.State {
 	case StateNone:
 		logrus.Debugf("[%s] generating a support bundle", sb.Name)
-		err := h.manager.Create(sb, h.getSupportBundleImage())
+		err := h.manager.Create(sb, settings.SupportBundleImage.Get())
 		toUpdate := sb.DeepCopy()
 		if err != nil {
 			h.setError(toUpdate, fmt.Sprintf("fail to create manager for %s: %s", sb.Name, err))
@@ -42,15 +43,6 @@ func (h *Handler) OnSupportBundleChanged(key string, sb *harvesterv1.SupportBund
 		logrus.Debugf("[%s] noop for state %s", sb.Name, sb.Status.State)
 		return sb, nil
 	}
-}
-
-func (h *Handler) OnSupportBundleRemoved(key string, sb *harvesterv1.SupportBundle) (*harvesterv1.SupportBundle, error) {
-	if sb == nil {
-		return nil, nil
-	}
-	logrus.Debugf("[%s] removing cr", sb.Name)
-	// nothing to cleanup, any intermediate workload resoureces have owner reference to the support bunle resource
-	return sb, nil
 }
 
 func (h *Handler) setError(toUpdate *harvesterv1.SupportBundle, reason string) {
@@ -70,21 +62,4 @@ func (h *Handler) setState(toUpdate *harvesterv1.SupportBundle, state string) {
 	}
 
 	toUpdate.Status.State = state
-}
-
-func (h *Handler) getSupportBundleImage() string {
-	defaultImage := "harvester/support-bundle-utils:latest"
-	settingKey := "support-bundle-utils-image"
-	setting, err := h.settingCache.Get(settingKey)
-	if err != nil {
-		logrus.Errorf("fail to get support-bundle-utils image from settings: %s", err)
-		return defaultImage
-	}
-	if setting.Value != "" {
-		return setting.Value
-	}
-	if setting.Default != "" {
-		return setting.Default
-	}
-	return defaultImage
 }

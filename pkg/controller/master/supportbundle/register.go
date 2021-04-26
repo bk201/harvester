@@ -34,6 +34,5 @@ func Register(ctx context.Context, management *config.Management, options config
 	}
 
 	sbs.OnChange(ctx, controllerAgentName, controller.OnSupportBundleChanged)
-	sbs.OnRemove(ctx, controllerAgentName, controller.OnSupportBundleRemoved)
 	return nil
 }
