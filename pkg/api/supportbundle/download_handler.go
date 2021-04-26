@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	ctlcorev1 "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 )
 
 type DownloadHandler struct {
@@ -49,7 +48,7 @@ func (h *DownloadHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if sb.Status.State != "ready" || sb.Status.Filename == "" || sb.Status.Filesize == 0 {
+	if sb.Status.State != ctlsb.StateReady || sb.Status.Filename == "" || sb.Status.Filesize == 0 {
 		util.ResponseError(rw, http.StatusBadRequest, errors.New("support bundle is not ready"))
 		return
 	}
@@ -92,16 +91,12 @@ func (h *DownloadHandler) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DownloadHandler) getManagerPodIP(sb *harvesterv1.SupportBundle) (string, error) {
-	r1, err := labels.NewRequirement("app", selection.Equals, []string{ctlsb.AppManager})
-	if err != nil {
-		return "", err
-	}
-	r2, err := labels.NewRequirement(ctlsb.SupportBundleLabelKey, selection.Equals, []string{sb.Name})
-	if err != nil {
-		return "", err
+	sets := labels.Set{
+		"app":                       ctlsb.AppManager,
+		ctlsb.SupportBundleLabelKey: sb.Name,
 	}
 
-	pods, err := h.podCache.List(sb.Namespace, labels.NewSelector().Add(*r1).Add(*r2))
+	pods, err := h.podCache.List(sb.Namespace, sets.AsSelector())
 	if err != nil {
 		return "", err
 
