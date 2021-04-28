@@ -26,10 +26,10 @@ type SupportBundle struct {
 
 type SupportBundleSpec struct {
 	// +optional
-	IssueURL string `json:"issueURL"`
+	IssueURL string `json:"issueURL,omitempty"`
 
 	// +kubebuilder:validation:Required
-	Description string `json:"description"`
+	Description string `json:"description,omitempty"`
 }
 
 type SupportBundleStatus struct {
