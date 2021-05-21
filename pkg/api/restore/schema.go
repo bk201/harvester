@@ -9,13 +9,9 @@ import (
 )
 
 func RegisterSchema(scaled *config.Scaled, server *server.Server, options config.Options) error {
-	vmRestore := &vmRestoreStore{
-		Store:   proxy.NewProxyStore(server.ClientFactory, nil, server.AccessSetLookup),
-		vmCache: scaled.VirtFactory.Kubevirt().V1().VirtualMachine().Cache(),
-	}
 	t := schema.Template{
 		ID:    "harvesterhci.io.virtualmachinerestore",
-		Store: vmRestore,
+		Store: proxy.NewProxyStore(server.ClientFactory, nil, server.AccessSetLookup),
 	}
 	server.SchemaFactory.AddTemplate(t)
 	return nil
