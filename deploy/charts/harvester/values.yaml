@@ -197,7 +197,7 @@ containers:
 
     ## Specify the args.
     ##
-    args: []
+    args: ["api"]
 
     ## Specify the env.
     ##
