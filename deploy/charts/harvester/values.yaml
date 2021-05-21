@@ -400,3 +400,22 @@ longhorn:
     concurrentAutomaticEngineUpgradePerNodeLimit: 3
 
 rancherEmbedded: false
+
+webhook:
+  replicas: 1
+  debug: true
+  image:
+
+    ## Specify the pull policy of image.
+    ##
+    imagePullPolicy: Always
+
+    ## Specify the repository of image.
+    ##
+    repository: rancher/harvester
+
+    ## Specify the tag of image.
+    ##
+    tag: kiefer-dev
+
+  httpsPort: 9443
