@@ -9,7 +9,6 @@ import (
 	"github.com/rancher/steve/pkg/stores/proxy"
 	"github.com/rancher/wrangler/pkg/schemas"
 
-	"github.com/harvester/harvester/pkg/api/store"
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	"github.com/harvester/harvester/pkg/config"
 )
@@ -21,10 +20,8 @@ const (
 func RegisterSchema(scaled *config.Scaled, server *server.Server, options config.Options) error {
 	server.BaseSchemas.MustImportAndCustomize(harvesterv1.KeyGenInput{}, nil)
 	t := schema.Template{
-		ID: "harvesterhci.io.keypair",
-		Store: store.KeyPairStore{
-			Store: proxy.NewProxyStore(server.ClientFactory, nil, server.AccessSetLookup),
-		},
+		ID:    "harvesterhci.io.keypair",
+		Store: proxy.NewProxyStore(server.ClientFactory, nil, server.AccessSetLookup),
 		Customize: func(s *types.APISchema) {
 			s.CollectionFormatter = CollectionFormatter
 			s.CollectionActions = map[string]schemas.Action{
