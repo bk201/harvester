@@ -15,17 +15,9 @@ const (
 )
 
 func RegisterSchema(scaled *config.Scaled, server *server.Server, options config.Options) error {
-	templates := scaled.HarvesterFactory.Harvesterhci().V1beta1().VirtualMachineTemplate()
 	templateVersionCache := scaled.HarvesterFactory.Harvesterhci().V1beta1().VirtualMachineTemplateVersion().Cache()
 	th := &templateLinkHandler{
 		templateVersionCache: templateVersionCache,
-	}
-
-	templateVersionStore := &templateVersionStore{
-		Store:                proxy.NewProxyStore(server.ClientFactory, nil, server.AccessSetLookup),
-		templateCache:        templates.Cache(),
-		templateVersionCache: templateVersionCache,
-		keyPairCache:         scaled.HarvesterFactory.Harvesterhci().V1beta1().KeyPair().Cache(),
 	}
 
 	t := []schema.Template{
@@ -40,7 +32,7 @@ func RegisterSchema(scaled *config.Scaled, server *server.Server, options config
 		{
 			ID:        templateVersionSchemaID,
 			Formatter: versionFormatter,
-			Store:     templateVersionStore,
+			Store:     proxy.NewProxyStore(server.ClientFactory, nil, server.AccessSetLookup),
 		},
 	}
 
