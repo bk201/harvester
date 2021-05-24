@@ -40,6 +40,12 @@ var CmdWebhook = cli.Command{
 			Usage:       "The harvester namespace",
 			Required:    true,
 		},
+		cli.StringFlag{
+			Name:        "controller-user",
+			EnvVar:      "HARVESTER_CONTROLLER_USER_NAME",
+			Destination: &webhookOptions.HarvesterControllerUsername,
+			Usage:       "The harvester namespace",
+		},
 	},
 	Action: func(c *cli.Context) error {
 		return webhookRun()
@@ -61,7 +67,7 @@ func webhookRun() error {
 		return err
 	}
 
-	webhookOptions.HarvesterControllerUsername = fmt.Sprintf("system:serviceaccount:%s:harvester", webhookOptions.Namespace)
+	logrus.Debugf("Harvester controller username: %s", webhookOptions.HarvesterControllerUsername)
 
 	s := server.New(ctx, restCfg, webhookOptions)
 	if err := s.ListenAndServe(); err != nil {

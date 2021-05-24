@@ -19,7 +19,7 @@ func RejectBadRequest(response *webhook.Response, message string) error {
 	return nil
 }
 
-// 400
+// 405
 func RejectMethodNotAllowed(response *webhook.Response, message string) error {
 	response.Allowed = false
 	response.Result = &metav1.Status{

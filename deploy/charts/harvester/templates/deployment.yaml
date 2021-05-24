@@ -170,6 +170,8 @@ spec:
               fieldPath: metadata.namespace
         - name: HARVESTER_DEBUG
           value: {{ .Values.webhook.debug | quote }}
+        - name: HARVESTER_CONTROLLER_USER_NAME
+          value: {{ .Values.webhook.controllerUser | default (print "system:serviceaccount:" .Release.Namespace ":harvester")  | quote }}
         image: {{ .Values.webhook.image.repository }}:{{ .Values.webhook.image.tag }}
         name: harvester-webhook
         args: ["webhook"]

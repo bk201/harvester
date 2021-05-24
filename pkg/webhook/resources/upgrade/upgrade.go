@@ -6,10 +6,13 @@ import (
 	"github.com/rancher/wrangler/pkg/webhook"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/harvester/harvester/pkg/apis/harvesterhci.io"
 	"github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	ctlharvesterv1 "github.com/harvester/harvester/pkg/generated/controllers/harvesterhci.io/v1beta1"
-	"github.com/harvester/harvester/pkg/webhook/utils"
+	werror "github.com/harvester/harvester/pkg/webhook/error"
+	"github.com/harvester/harvester/pkg/webhook/types"
 )
 
 const (
@@ -17,42 +20,40 @@ const (
 	upgradeStateLabel = "harvesterhci.io/upgradeState"
 )
 
-func NewValidator(upgrades ctlharvesterv1.UpgradeCache) webhook.Handler {
+func NewValidator(upgrades ctlharvesterv1.UpgradeCache) types.Validator {
 	return &upgradeValidator{
 		upgrades: upgrades,
 	}
 }
 
 type upgradeValidator struct {
+	types.DefaultValidator
+
 	upgrades ctlharvesterv1.UpgradeCache
 }
 
-func (v *upgradeValidator) Admit(response *webhook.Response, request *webhook.Request) error {
-	logrus.Debug("entering upgradeValidator.Admit")
-	newUpgrade, err := upgradeObject(request)
-	if err != nil {
-		return utils.RejectInternalError(response, err.Error())
+func (v *upgradeValidator) Info() types.ValidatorInfo {
+	return types.ValidatorInfo{
+		GroupName:  harvesterhci.GroupName,
+		ObjectType: &v1beta1.Upgrade{},
 	}
+}
+
+func (v *upgradeValidator) Create(request *webhook.Request, newObj runtime.Object) error {
+	logrus.Debug("entering upgradeValidator.Create")
+	newUpgrade := newObj.(*v1beta1.Upgrade)
 
 	sets := labels.Set{
 		upgradeStateLabel: stateUpgrading,
 	}
 	upgrades, err := v.upgrades.List(newUpgrade.Namespace, sets.AsSelector())
 	if err != nil {
-		return utils.RejectInternalError(response, err.Error())
+		return werror.NewInternalError(err.Error())
 	}
 	if len(upgrades) > 0 {
 		msg := fmt.Sprintf("cannot proceed until previous upgrade %q completes", upgrades[0].Name)
-		return utils.RejectConflict(response, msg)
+		return werror.NewConflict(msg)
 	}
 
-	return utils.Allow(response)
-}
-
-func upgradeObject(request *webhook.Request) (*v1beta1.Upgrade, error) {
-	object, err := request.DecodeObject()
-	if err != nil {
-		return nil, err
-	}
-	return object.(*v1beta1.Upgrade), nil
+	return nil
 }

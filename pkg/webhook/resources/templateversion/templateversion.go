@@ -5,13 +5,14 @@ import (
 
 	"github.com/rancher/wrangler/pkg/webhook"
 	"github.com/sirupsen/logrus"
-	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/harvester/harvester/pkg/apis/harvesterhci.io"
 	"github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	ctlharvesterv1 "github.com/harvester/harvester/pkg/generated/controllers/harvesterhci.io/v1beta1"
 	"github.com/harvester/harvester/pkg/ref"
-	"github.com/harvester/harvester/pkg/webhook/utils"
+	werror "github.com/harvester/harvester/pkg/webhook/error"
+	"github.com/harvester/harvester/pkg/webhook/types"
 )
 
 const (
@@ -19,7 +20,7 @@ const (
 	fieldKeyPairIds = "spec.keyPairIds"
 )
 
-func NewMutator(harvesterControllerUsername string, templateCache ctlharvesterv1.VirtualMachineTemplateCache, templateVersionCache ctlharvesterv1.VirtualMachineTemplateVersionCache, keypairs ctlharvesterv1.KeyPairCache) webhook.Handler {
+func NewMutator(harvesterControllerUsername string, templateCache ctlharvesterv1.VirtualMachineTemplateCache, templateVersionCache ctlharvesterv1.VirtualMachineTemplateVersionCache, keypairs ctlharvesterv1.KeyPairCache) types.Mutator {
 	return &templateVersionMutator{
 		ctlUsername:          harvesterControllerUsername,
 		templateCache:        templateCache,
@@ -29,48 +30,40 @@ func NewMutator(harvesterControllerUsername string, templateCache ctlharvesterv1
 }
 
 type templateVersionMutator struct {
+	types.DefaultMutator
+
 	ctlUsername          string
 	templateCache        ctlharvesterv1.VirtualMachineTemplateCache
 	templateVersionCache ctlharvesterv1.VirtualMachineTemplateVersionCache
 	keypairs             ctlharvesterv1.KeyPairCache
 }
 
-func (m *templateVersionMutator) Admit(response *webhook.Response, request *webhook.Request) error {
-	logrus.Debugf("entering templateVersionMutator.Admit")
-	if request.DryRun != nil && *request.DryRun {
-		logrus.Debugf("dryRun templateVersionMutator.Admit")
-		return utils.Allow(response)
+func (m *templateVersionMutator) Info() types.ValidatorInfo {
+	return types.ValidatorInfo{
+		GroupName:  harvesterhci.GroupName,
+		ObjectType: &v1beta1.VirtualMachineTemplateVersion{},
 	}
+}
 
-	vmTemplate, err := virtualMachineTemplateObject(request)
-	if err != nil {
-		return utils.RejectInternalError(response, err.Error())
-	}
+func (m *templateVersionMutator) Create(request *webhook.Request, newObj runtime.Object) (types.PatchOps, error) {
+	logrus.Debug("entering templateVersionMutator.Create")
+	vmTemplVersion := newObj.(*v1beta1.VirtualMachineTemplateVersion)
 
-	if request.Operation == admissionv1.Delete {
-		return m.admitDelete(response, request, vmTemplate)
-	}
-
-	if request.Operation == admissionv1.Update && request.UserInfo.Username != m.ctlUsername {
-		// deny update requests except those sent from the harvester controller
-		return utils.RejectMethodNotAllowed(response, "Update templateVersion is not supported")
-	}
-
-	templateID := vmTemplate.Spec.TemplateID
+	templateID := vmTemplVersion.Spec.TemplateID
 	if templateID == "" {
-		return utils.RejectInvalid(response, "TemplateId is empty", fieldTemplateID)
+		return nil, werror.NewInvalidError("TemplateId is empty", fieldTemplateID)
 	}
 
 	templateNs, templateName := ref.Parse(templateID)
-	if vmTemplate.Namespace != templateNs {
-		return utils.RejectInvalid(response, "Template version and template should reside in the same namespace", "metadata.namespace")
+	if vmTemplVersion.Namespace != templateNs {
+		return nil, werror.NewInvalidError("Template version and template should reside in the same namespace", "metadata.namespace")
 	}
 
 	if _, err := m.templateCache.Get(templateNs, templateName); err != nil {
-		return utils.RejectInvalid(response, err.Error(), fieldTemplateID)
+		return nil, werror.NewInvalidError(err.Error(), fieldTemplateID)
 	}
 
-	keyPairIDs := vmTemplate.Spec.KeyPairIDs
+	keyPairIDs := vmTemplVersion.Spec.KeyPairIDs
 	if len(keyPairIDs) > 0 {
 		for i, v := range keyPairIDs {
 			keyPairNs, keyPairName := ref.Parse(v)
@@ -78,50 +71,49 @@ func (m *templateVersionMutator) Admit(response *webhook.Response, request *webh
 			if err != nil {
 				message := fmt.Sprintf("KeyPairID %s is invalid, %v", v, err)
 				field := fmt.Sprintf("%s[%d]", fieldKeyPairIds, i)
-				return utils.RejectInvalid(response, message, field)
+				return nil, werror.NewInvalidError(message, field)
 			}
 		}
 	}
 
-	// patch "metadata.generateName" with "{templateName}-"
-	patchData := fmt.Sprintf(`[{"op": "replace", "path": "/metadata/generateName", "value": "%s"}]`, templateName+"-")
-	patchType := admissionv1.PatchTypeJSONPatch
-	response.PatchType = &patchType
-	response.Patch = []byte(patchData)
+	// Do not generate a name if there is a name.
+	if vmTemplVersion.Name != "" {
+		return nil, nil
+	}
 
-	return utils.Allow(response)
+	// patch "metadata.generateName" with "{templateName}-"
+	var patchOps types.PatchOps
+	patchOps = append(patchOps, fmt.Sprintf(`{"op": "replace", "path": "/metadata/generateName", "value": "%s"}`, templateName+"-"))
+	return patchOps, nil
 }
 
-func (m *templateVersionMutator) admitDelete(response *webhook.Response, request *webhook.Request, vmTemplateVersion *v1beta1.VirtualMachineTemplateVersion) error {
-	version, err := m.templateVersionCache.Get(vmTemplateVersion.Namespace, vmTemplateVersion.Name)
+func (m *templateVersionMutator) Update(request *webhook.Request, oldObj runtime.Object, newObj runtime.Object) (types.PatchOps, error) {
+	logrus.Debug("entering templateVersionMutator.Update")
+	if request.UserInfo.Username != m.ctlUsername {
+		logrus.Infof("not allow for user %s", request.UserInfo.Username)
+		return nil, werror.NewMethodNotAllowed("Update templateVersion is not supported")
+	}
+	return nil, nil
+}
+
+func (m *templateVersionMutator) Delete(request *webhook.Request, oldObj runtime.Object) (types.PatchOps, error) {
+	logrus.Debug("entering templateVersionMutator.Delete")
+	vmTemplVersion := oldObj.(*v1beta1.VirtualMachineTemplateVersion)
+	version, err := m.templateVersionCache.Get(vmTemplVersion.Namespace, vmTemplVersion.Name)
 	if err != nil {
-		return utils.RejectInternalError(response, err.Error())
+		return nil, werror.NewInternalError(err.Error())
 	}
 
 	templNs, templName := ref.Parse(version.Spec.TemplateID)
 	vt, err := m.templateCache.Get(templNs, templName)
 	if err != nil {
-		return utils.RejectInternalError(response, err.Error())
+		return nil, werror.NewInternalError(err.Error())
 	}
 
-	vresionID := ref.Construct(vmTemplateVersion.Namespace, vmTemplateVersion.Name)
+	vresionID := ref.Construct(vmTemplVersion.Namespace, vmTemplVersion.Name)
 	if vt.Spec.DefaultVersionID == vresionID {
-		return utils.RejectBadRequest(response, "Cannot delete the default templateVersion")
+		return nil, werror.NewBadRequest("Cannot delete the default templateVersion")
 	}
 
-	return utils.Allow(response)
-}
-
-func virtualMachineTemplateObject(request *webhook.Request) (*v1beta1.VirtualMachineTemplateVersion, error) {
-	var object runtime.Object
-	var err error
-	if request.Operation == admissionv1.Delete {
-		object, err = request.DecodeOldObject()
-	} else {
-		object, err = request.DecodeObject()
-	}
-	if err != nil {
-		return nil, err
-	}
-	return object.(*v1beta1.VirtualMachineTemplateVersion), nil
+	return nil, nil
 }

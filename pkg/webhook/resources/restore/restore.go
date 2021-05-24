@@ -6,65 +6,72 @@ import (
 	"github.com/rancher/wrangler/pkg/webhook"
 	"github.com/sirupsen/logrus"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/harvester/harvester/pkg/apis/harvesterhci.io"
 	"github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	ctlkubevirtv1 "github.com/harvester/harvester/pkg/generated/controllers/kubevirt.io/v1"
-	"github.com/harvester/harvester/pkg/webhook/utils"
+	werror "github.com/harvester/harvester/pkg/webhook/error"
+	"github.com/harvester/harvester/pkg/webhook/types"
 )
 
-func NewValidator(vms ctlkubevirtv1.VirtualMachineCache) webhook.Handler {
+const (
+	fieldTargetName               = "spec.target.name"
+	fieldVirtualMachineBackupName = "spec.virtualMachineBackupName"
+	fieldNewVM                    = "spec.newVM"
+)
+
+func NewValidator(vms ctlkubevirtv1.VirtualMachineCache) types.Validator {
 	return &restoreValidator{
 		vms: vms,
 	}
 }
 
 type restoreValidator struct {
+	types.DefaultValidator
+
 	vms ctlkubevirtv1.VirtualMachineCache
 }
 
-func (v *restoreValidator) Admit(response *webhook.Response, request *webhook.Request) error {
-	logrus.Debug("entering restoreValidator.Admit")
-	newRestore, err := restoreObject(request)
-	if err != nil {
-		return utils.RejectInternalError(response, err.Error())
+func (v *restoreValidator) Info() types.ValidatorInfo {
+	return types.ValidatorInfo{
+		GroupName:  harvesterhci.GroupName,
+		ObjectType: &v1beta1.VirtualMachineRestore{},
 	}
+}
+
+func (v *restoreValidator) Create(request *webhook.Request, newObj runtime.Object) error {
+	logrus.Debug("entering restoreValidator.Create")
+	newRestore := newObj.(*v1beta1.VirtualMachineRestore)
 
 	targetVM := newRestore.Spec.Target.Name
 	backupName := newRestore.Spec.VirtualMachineBackupName
 	newVM := newRestore.Spec.NewVM
 
 	if targetVM == "" {
-		return utils.RejectInvalid(response, "taget VM name is empty", "spec.target.name")
+		return werror.NewInvalidError("taget VM name is empty", fieldTargetName)
 	}
 	if backupName == "" {
-		return utils.RejectInvalid(response, "backup name is empty", "spec.virtualMachineBackupName")
+		return werror.NewInvalidError("backup name is empty", fieldVirtualMachineBackupName)
 	}
 
 	vm, err := v.vms.Get(newRestore.Namespace, targetVM)
 	if err != nil {
 		if newVM && apierrors.IsNotFound(err) {
-			return utils.Allow(response)
+			return nil
 		}
-		return utils.RejectInvalid(response, err.Error(), "spec.target.name")
+		return werror.NewInvalidError(err.Error(), fieldTargetName)
 	}
 
 	// restore a new vm but the vm is already exist
 	if newVM && vm != nil {
-		return utils.RejectInvalid(response, fmt.Sprintf("VM %s is already exists", vm.Name), "spec.newVM")
+		return werror.NewInvalidError(fmt.Sprintf("VM %s is already exists", vm.Name), fieldNewVM)
 	}
 
 	// restore an existing vm but the vm is still running
 	if !newVM && vm.Status.Ready {
-		return utils.RejectInvalid(response, fmt.Sprintf("please stop the VM %q before doing a restore", vm.Name), "spec.target.name")
+		return werror.NewInvalidError(fmt.Sprintf("please stop the VM %q before doing a restore", vm.Name), fieldTargetName)
 	}
 
-	return utils.Allow(response)
-}
-
-func restoreObject(request *webhook.Request) (*v1beta1.VirtualMachineRestore, error) {
-	object, err := request.DecodeObject()
-	if err != nil {
-		return nil, err
-	}
-	return object.(*v1beta1.VirtualMachineRestore), nil
+	return nil
 }

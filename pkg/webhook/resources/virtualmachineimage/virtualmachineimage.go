@@ -4,53 +4,63 @@ import (
 	"github.com/rancher/wrangler/pkg/webhook"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/harvester/harvester/pkg/apis/harvesterhci.io"
 	"github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	ctlharvesterv1 "github.com/harvester/harvester/pkg/generated/controllers/harvesterhci.io/v1beta1"
-	"github.com/harvester/harvester/pkg/webhook/utils"
+	werror "github.com/harvester/harvester/pkg/webhook/error"
+	"github.com/harvester/harvester/pkg/webhook/types"
 )
 
-func NewValidator(vmimages ctlharvesterv1.VirtualMachineImageCache) webhook.Handler {
+const (
+	fieldDisplayName = "spec.displayName"
+)
+
+func NewValidator(vmimages ctlharvesterv1.VirtualMachineImageCache) types.Validator {
 	return &virtualMachineImageValidator{
 		vmimages: vmimages,
 	}
 }
 
 type virtualMachineImageValidator struct {
+	types.DefaultValidator
+
 	vmimages ctlharvesterv1.VirtualMachineImageCache
 }
 
-func (v *virtualMachineImageValidator) Admit(response *webhook.Response, request *webhook.Request) error {
-	logrus.Debug("entering virtualMachineImageValidator.Admit")
-	newImage, err := vmimageObject(request)
-	if err != nil {
-		return utils.RejectInternalError(response, err.Error())
+func (v *virtualMachineImageValidator) Info() types.ValidatorInfo {
+	return types.ValidatorInfo{
+		GroupName:  harvesterhci.GroupName,
+		ObjectType: &v1beta1.VirtualMachineImage{},
 	}
+}
+
+func (v *virtualMachineImageValidator) Create(request *webhook.Request, newObj runtime.Object) error {
+	logrus.Debug("entering virtualMachineImageValidator.Create")
+	newImage := newObj.(*v1beta1.VirtualMachineImage)
 
 	if newImage.Spec.DisplayName == "" {
-		return utils.RejectInvalid(response, "displayName is required", "spec.displayName")
+		return werror.NewInvalidError("displayName is required", fieldDisplayName)
 	}
 
 	allImages, err := v.vmimages.List(newImage.Namespace, labels.Everything())
 	if err != nil {
-		return utils.RejectInternalError(response, err.Error())
+		return werror.NewInternalError(err.Error())
 	}
 	for _, image := range allImages {
 		if newImage.Name == image.Name {
 			continue
 		}
 		if newImage.Spec.DisplayName == image.Spec.DisplayName {
-			return utils.RejectConflict(response, "A resource with the same name exists.")
+			return werror.NewConflict("A resource with the same name exists")
 		}
 	}
 
-	return utils.Allow(response)
+	return nil
 }
 
-func vmimageObject(request *webhook.Request) (*v1beta1.VirtualMachineImage, error) {
-	object, err := request.DecodeObject()
-	if err != nil {
-		return nil, err
-	}
-	return object.(*v1beta1.VirtualMachineImage), nil
+func (v *virtualMachineImageValidator) Update(request *webhook.Request, oldObj runtime.Object, newObj runtime.Object) error {
+	logrus.Debug("entering virtualMachineImageValidator.Update")
+	return v.Create(request, newObj)
 }
