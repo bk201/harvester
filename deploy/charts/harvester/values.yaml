@@ -416,6 +416,6 @@ webhook:
 
     ## Specify the tag of image.
     ##
-    tag: kiefer-dev
+    tag: master-head
 
   httpsPort: 9443
