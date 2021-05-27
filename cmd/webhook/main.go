@@ -1,63 +1,66 @@
-package cmd
+package main
 
 import (
 	"context"
 	"fmt"
+	_ "net/http/pprof"
 
 	"github.com/rancher/wrangler/pkg/signals"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
+	"github.com/harvester/harvester/pkg/cmd"
+	harvesterconfig "github.com/harvester/harvester/pkg/config"
 	apiserver "github.com/harvester/harvester/pkg/server"
 	"github.com/harvester/harvester/pkg/webhook/config"
 	"github.com/harvester/harvester/pkg/webhook/server"
 )
 
-var webhookOptions config.Options
+func main() {
+	var options config.Options
 
-var CmdWebhook = cli.Command{
-	Name:  "webhook",
-	Usage: "start the admission webhook server",
-	Flags: []cli.Flag{
+	flags := []cli.Flag{
 		cli.IntFlag{
 			Name:        "threadiness",
 			EnvVar:      "THREADINESS",
 			Usage:       "Specify controller threads",
 			Value:       5,
-			Destination: &webhookOptions.Threadiness,
+			Destination: &options.Threadiness,
 		},
 		cli.IntFlag{
 			Name:        "https-port",
 			EnvVar:      "HARVESTER_WEBHOOK_SERVER_HTTPS_PORT",
 			Usage:       "HTTPS listen port",
 			Value:       9443,
-			Destination: &webhookOptions.HTTPSListenPort,
+			Destination: &options.HTTPSListenPort,
 		},
 		cli.StringFlag{
 			Name:        "namespace",
 			EnvVar:      "NAMESPACE",
-			Destination: &webhookOptions.Namespace,
+			Destination: &options.Namespace,
 			Usage:       "The harvester namespace",
 			Required:    true,
 		},
 		cli.StringFlag{
 			Name:        "controller-user",
 			EnvVar:      "HARVESTER_CONTROLLER_USER_NAME",
-			Destination: &webhookOptions.HarvesterControllerUsername,
+			Destination: &options.HarvesterControllerUsername,
 			Usage:       "The harvester namespace",
 		},
-	},
-	Action: func(c *cli.Context) error {
-		return webhookRun()
-	},
+	}
+
+	app := cmd.NewApp("Harvester Admission Webhook Server", "", flags, func(commonOptions *harvesterconfig.CommonOptions) error {
+		return run(commonOptions, options)
+	})
+	app.Run()
 }
 
-func webhookRun() error {
+func run(commonOptions *harvesterconfig.CommonOptions, options config.Options) error {
 	logrus.Info("Starting webhook server")
 
 	ctx := signals.SetupSignalHandler(context.Background())
 
-	kubeConfig, err := apiserver.GetConfig(globalOptions.KubeConfig)
+	kubeConfig, err := apiserver.GetConfig(commonOptions.KubeConfig)
 	if err != nil {
 		return fmt.Errorf("failed to find kubeconfig: %v", err)
 	}
@@ -67,9 +70,9 @@ func webhookRun() error {
 		return err
 	}
 
-	logrus.Debugf("Harvester controller username: %s", webhookOptions.HarvesterControllerUsername)
+	logrus.Debugf("Harvester controller username: %s", options.HarvesterControllerUsername)
 
-	s := server.New(ctx, restCfg, webhookOptions)
+	s := server.New(ctx, restCfg, options)
 	if err := s.ListenAndServe(); err != nil {
 		return err
 	}

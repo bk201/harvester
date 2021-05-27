@@ -197,7 +197,7 @@ containers:
 
     ## Specify the args.
     ##
-    args: ["api"]
+    args: []
 
     ## Specify the env.
     ##
@@ -403,7 +403,7 @@ rancherEmbedded: false
 
 webhook:
   replicas: 1
-  debug: true
+  debug: false
   image:
 
     ## Specify the pull policy of image.
@@ -412,7 +412,7 @@ webhook:
 
     ## Specify the repository of image.
     ##
-    repository: rancher/harvester
+    repository: rancher/harvester-webhook
 
     ## Specify the tag of image.
     ##

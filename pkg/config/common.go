@@ -1,6 +1,6 @@
 package config
 
-type GlobalOptions struct {
+type CommonOptions struct {
 	Debug     bool
 	Trace     bool
 	LogFormat string

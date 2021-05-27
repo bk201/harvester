@@ -13,66 +13,70 @@ import (
 	"github.com/harvester/harvester/pkg/version"
 )
 
-var globalOptions config.GlobalOptions
+type App struct {
+	app     *cli.App
+	Options *config.CommonOptions
+}
 
-func Execute() {
-	app := cli.NewApp()
-	app.Name = "harvester"
-	app.Version = version.FriendlyVersion()
-	app.Usage = ""
+type Action func(*config.CommonOptions) error
 
-	app.Commands = []cli.Command{
-		CmdAPI,
-		CmdWebhook,
-	}
+func NewApp(name string, usage string, flags []cli.Flag, action Action) *App {
+	cliApp := cli.NewApp()
 
-	// global flags
-	app.Flags = []cli.Flag{
+	cliApp.Name = name
+	cliApp.Version = version.FriendlyVersion()
+	cliApp.Usage = usage
+
+	// common flags
+	options := config.CommonOptions{}
+	cliApp.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:        "kubeconfig",
 			EnvVar:      "KUBECONFIG",
 			Usage:       "Kube config for accessing k8s cluster",
-			Destination: &globalOptions.KubeConfig,
+			Destination: &options.KubeConfig,
 		},
 		cli.StringFlag{
 			Name:        "profile-listen-address",
 			Value:       "0.0.0.0:6060",
 			Usage:       "Address to listen on for profiling",
-			Destination: &globalOptions.ProfilerAddress,
+			Destination: &options.ProfilerAddress,
 		},
 		cli.BoolFlag{
 			Name:        "debug",
 			EnvVar:      "HARVESTER_DEBUG",
 			Usage:       "Enable debug logs",
-			Destination: &globalOptions.Debug,
+			Destination: &options.Debug,
 		},
 		cli.BoolFlag{
 			Name:        "trace",
 			EnvVar:      "HARVESTER_TRACE",
 			Usage:       "Enable trace logs",
-			Destination: &globalOptions.Trace,
+			Destination: &options.Trace,
 		},
 		cli.StringFlag{
 			Name:        "log-format",
 			EnvVar:      "HARVESTER_LOG_FORMAT",
 			Usage:       "Log format",
 			Value:       "text",
-			Destination: &globalOptions.LogFormat,
+			Destination: &options.LogFormat,
 		},
 	}
 
-	app.Before = func(c *cli.Context) error {
-		initProfiling(globalOptions)
-		initLogs(globalOptions)
-		return nil
+	cliApp.Flags = append(cliApp.Flags, flags...)
+	cliApp.Action = func(c *cli.Context) error {
+		initProfiling(&options)
+		initLogs(&options)
+		return action(&options)
 	}
 
-	if err := app.Run(os.Args); err != nil {
-		logrus.Fatal(err)
+	return &App{
+		app:     cliApp,
+		Options: &options,
 	}
 }
 
-func initProfiling(options config.GlobalOptions) {
+func initProfiling(options *config.CommonOptions) {
 	// enable profiler
 	if options.ProfilerAddress != "" {
 		go func() {
@@ -81,7 +85,7 @@ func initProfiling(options config.GlobalOptions) {
 	}
 }
 
-func initLogs(options config.GlobalOptions) {
+func initLogs(options *config.CommonOptions) {
 	switch options.LogFormat {
 	case "simple":
 		logrus.SetFormatter(&simplelog.StandardFormatter{})
@@ -98,5 +102,11 @@ func initLogs(options config.GlobalOptions) {
 	if options.Trace {
 		logrus.SetLevel(logrus.TraceLevel)
 		logrus.Tracef("Loglevel set to [%v]", logrus.TraceLevel)
+	}
+}
+
+func (a *App) Run() {
+	if err := a.app.Run(os.Args); err != nil {
+		logrus.Fatal(err)
 	}
 }
