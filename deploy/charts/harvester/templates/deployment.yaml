@@ -1,3 +1,4 @@
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -138,3 +139,44 @@ spec:
       tolerations:
 {{ toYaml .Values.tolerations | indent 8 }}
 {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: harvester-webhook
+  labels:
+{{ include "harvester.labels" . | indent 4 }}
+    app.kubernetes.io/name: harvester
+    app.kubernetes.io/component: webhook-server
+spec:
+  selector:
+    matchLabels:
+{{ include "harvester.immutableLabels" . | indent 6 }}
+      app: harvester-webhook
+  replicas: {{ .Values.webhook.replicas }}
+  template:
+    metadata:
+      labels:
+{{ include "harvester.labels" . | indent 8 }}
+        app: harvester-webhook
+    spec:
+      containers:
+      - env:
+        - name: HARVESTER_WEBHOOK_SERVER_HTTPS_PORT
+          value: {{ .Values.webhook.httpsPort | quote }}
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: HARVESTER_DEBUG
+          value: {{ .Values.webhook.debug | quote }}
+        - name: HARVESTER_CONTROLLER_USER_NAME
+          value: {{ .Values.webhook.controllerUser | default (print "system:serviceaccount:" .Release.Namespace ":harvester")  | quote }}
+        image: {{ .Values.webhook.image.repository }}:{{ .Values.webhook.image.tag }}
+        name: harvester-webhook
+        args: []
+        imagePullPolicy: {{ .Values.webhook.image.imagePullPolicy }}
+        ports:
+        - name: https
+          containerPort: {{ .Values.webhook.httpsPort }}
+      serviceAccountName: harvester
