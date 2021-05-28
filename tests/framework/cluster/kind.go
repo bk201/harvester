@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"sigs.k8s.io/kind/pkg/cluster"
+	"sigs.k8s.io/kind/pkg/exec"
 
 	"github.com/harvester/harvester/tests/framework/finder"
 	"github.com/harvester/harvester/tests/framework/fuzz"
@@ -117,6 +118,34 @@ func (c *LocalKindCluster) Startup(output io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("failed to startup, %v", err)
 	}
+
+	err = c.loadImages(provider, logger)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c LocalKindCluster) loadImages(provider *cluster.Provider, logger *logs.Logger) error {
+	imageNames := []string{"rancher/harvester-webhook:abc"}
+	nodeList, err := provider.ListInternalNodes(c.ClusterName)
+	if err != nil {
+		return err
+	}
+
+	for _, node := range nodeList {
+		logger.V(0).Infof("node %+v", node)
+	}
+
+	for _, imageName := range imageNames {
+		cmd := exec.Command("kind", "load", "docker-image", imageName, "--name", c.ClusterName)
+		_, err := exec.CombinedOutputLines(cmd)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -169,12 +198,14 @@ func (c LocalKindCluster) generateConfiguration() ([]byte, error) {
 	var tpText = `---
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-{{- if .ImageMirror }}
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-    endpoint = ["{{.ImageMirror}}"]
-{{- end }}
+    endpoint = ["http://192.168.2.106:5000"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."k8s.gcr.io"]
+    endpoint = ["http://192.168.2.106:5001"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.suse.com"]
+    endpoint = ["http://192.168.2.106:5003"]
 networking:
   apiServerAddress: "0.0.0.0"
 nodes:
