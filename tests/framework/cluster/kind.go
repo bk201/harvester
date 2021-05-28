@@ -6,11 +6,14 @@ import (
 	"html/template"
 	"io"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"sigs.k8s.io/kind/pkg/cluster"
+	"sigs.k8s.io/kind/pkg/exec"
 
+	"github.com/harvester/harvester/tests/framework/env"
 	"github.com/harvester/harvester/tests/framework/finder"
 	"github.com/harvester/harvester/tests/framework/fuzz"
 	"github.com/harvester/harvester/tests/framework/logs"
@@ -59,6 +62,8 @@ type LocalKindCluster struct {
 	// Specify the path of preset cluster configuration,
 	// configure in "KIND_CLUSTER_CONFIG_PATH" env.
 	ClusterConfigPath string
+
+	provider *cluster.Provider
 }
 
 const (
@@ -117,6 +122,24 @@ func (c *LocalKindCluster) Startup(output io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("failed to startup, %v", err)
 	}
+
+	return nil
+}
+
+func (c LocalKindCluster) LoadImages(output io.Writer) error {
+	logger := logs.NewLogger(output, 0)
+
+	for _, image := range env.GetPreloadingImages() {
+		logger.V(0).Infof("Loading image %s...", image)
+		cmd := exec.Command("kind", "load", "docker-image", image, "--name", c.ClusterName)
+		// kind load prints messages to stderr
+		lines, err := exec.CombinedOutputLines(cmd)
+		if err != nil {
+			return err
+		}
+		logger.V(0).Info(strings.Join(lines, "\n"))
+	}
+
 	return nil
 }
 
@@ -169,12 +192,14 @@ func (c LocalKindCluster) generateConfiguration() ([]byte, error) {
 	var tpText = `---
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-{{- if .ImageMirror }}
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
-    endpoint = ["{{.ImageMirror}}"]
-{{- end }}
+    endpoint = ["http://192.168.2.106:5000"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."k8s.gcr.io"]
+    endpoint = ["http://192.168.2.106:5001"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.suse.com"]
+    endpoint = ["http://192.168.2.106:5003"]
 networking:
   apiServerAddress: "0.0.0.0"
 nodes:

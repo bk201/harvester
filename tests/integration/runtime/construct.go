@@ -40,6 +40,15 @@ func installHarvesterChart(ctx context.Context, kubeConfig *restclient.Config) e
 		"replicas":                             0,
 		"harvester-network-controller.enabled": false,
 	}
+
+	// webhook
+	patches["webhook.controllerUser"] = "kubernetes-admin"
+	patches["webhook.image.imagePullPolicy"] = "IfNotPresent"
+	webhookImage := env.GetWebhookImage()
+	if webhookImage != "" {
+		patches["webhook.image.image"] = webhookImage
+	}
+
 	if !env.IsE2ETestsEnabled() {
 		patches["longhorn.enabled"] = "false"
 	}
