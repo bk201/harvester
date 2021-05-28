@@ -13,14 +13,9 @@ const (
 )
 
 func RegisterSchema(scaled *config.Scaled, server *server.Server, options config.Options) error {
-	upgradeStore := &store{
-		namespace:    options.Namespace,
-		Store:        proxy.NewProxyStore(server.ClientFactory, nil, server.AccessSetLookup),
-		upgradeCache: scaled.Management.HarvesterFactory.Harvesterhci().V1beta1().Upgrade().Cache(),
-	}
 	t := schema.Template{
 		ID:    upgradeSchemaID,
-		Store: upgradeStore,
+		Store: proxy.NewProxyStore(server.ClientFactory, nil, server.AccessSetLookup),
 	}
 	server.SchemaFactory.AddTemplate(t)
 	return nil
