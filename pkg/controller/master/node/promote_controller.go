@@ -40,23 +40,11 @@ const (
 
 	defaultSpecManagementNumber = 3
 
-	promoteImage         = "busybox:1.32.0"
-	promoteRootMountPath = "/host"
-
-	// restart after modify the k3s service profile
-	promoteCommand = `echo start promote && \
-if [ ! -f /var/lib/rancher/k3os/config.yaml ]; then \
-	sudo cp /k3os/system/config.yaml /var/lib/rancher/k3os/config.yaml && \
-	echo done clone config; \
-fi && \
-echo update config && \
-sudo yq -i eval '.k3os.k3sArgs[0] = \"server\"' /var/lib/rancher/k3os/config.yaml && \
-sudo yq -i eval '.k3os.k3sArgs |= . + [\"--disable\",\"local-storage\",\"--disable\",\"servicelb\",\"--disable\",\"traefik\"]' /var/lib/rancher/k3os/config.yaml && \
-sudo yq -i eval '.k3os.k3sArgs |= . + [\"--cluster-cidr\",\"10.52.0.0/16\",\"--service-cidr\",\"10.53.0.0/16\",\"--cluster-dns\",\"10.53.0.10\"]' /var/lib/rancher/k3os/config.yaml && \
-echo restart and promote k3s node && \
-cat /var/run/k3s-restarter-trap.pid | xargs -r kill -HUP && \
-echo finish promote
-`
+	promoteImage            = "busybox:1.32.0"
+	promoteRootMountPath    = "/host"
+	promoteScriptsMountPath = "/host/tmp/harvester-helpers"
+	promoteScript           = "/tmp/harvester-helpers/promote.sh"
+	helperConfigMapName     = "harvester-helpers"
 )
 
 var (
@@ -434,6 +422,15 @@ func buildPromoteJob(namespace, nodeName string) *batchv1.Job {
 								Path: "/", Type: &hostPathDirectory,
 							},
 						},
+					}, {
+						Name: "helpers",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: helperConfigMapName,
+								},
+							},
+						},
 					}},
 				},
 			},
@@ -446,10 +443,11 @@ func buildPromoteJob(namespace, nodeName string) *batchv1.Job {
 			Name:      "promote",
 			Image:     promoteImage,
 			Command:   []string{"sh"},
-			Args:      []string{"-c", fmt.Sprintf(`chroot %s bash -c "%s"`, promoteRootMountPath, promoteCommand)},
+			Args:      []string{"-c", fmt.Sprintf("chroot %s bash %s", promoteRootMountPath, promoteScript)},
 			Resources: corev1.ResourceRequirements{},
 			VolumeMounts: []corev1.VolumeMount{
 				{Name: "host-root", MountPath: promoteRootMountPath},
+				{Name: "helpers", MountPath: promoteScriptsMountPath},
 			},
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			SecurityContext: &corev1.SecurityContext{

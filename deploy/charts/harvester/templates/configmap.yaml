@@ -1,0 +1,21 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: harvester-helpers
+  labels:
+{{ include "harvester.labels" . | indent 4 }}
+data:
+  promote.sh: |
+    #!/bin/bash -ex
+    echo start promote
+    cat > /etc/rancher/rke2/config.yaml.d/90-harvester-server.yaml <<EOF
+    cni: multus,canal
+    disable: rke2-ingress-nginx
+    cluster-cidr: 10.52.0.0/16
+    service-cidr: 10.53.0.0/16
+    cluster-dns: 10.53.0.10
+    EOF
+
+    systemctl disable --now rke2-agent
+    systemctl enable --now rke2-server
+    echo finish promote
