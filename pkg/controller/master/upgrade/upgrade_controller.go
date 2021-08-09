@@ -15,8 +15,8 @@ import (
 
 const (
 	//system upgrade controller is deployed in k3os-system namespace
-	k3osSystemNamespace            = "k3os-system"
-	k3osUpgradeServiceAccount      = "k3os-upgrade"
+	k3osSystemNamespace            = "cattle-system"
+	k3osUpgradeServiceAccount      = "system-upgrade-controller"
 	kubeSystemNamespace            = "kube-system"
 	harvesterSystemNamespace       = "harvester-system"
 	harvesterVersionLabel          = "harvesterhci.io/version"
@@ -24,7 +24,7 @@ const (
 	harvesterManagedLabel          = "harvesterhci.io/managed"
 	harvesterLatestUpgradeLabel    = "harvesterhci.io/latestUpgrade"
 	harvesterUpgradeComponentLabel = "harvesterhci.io/upgradeComponent"
-	upgradeImageRepository         = "rancher/harvester-bundle"
+	upgradeImageRepository         = "rancher/harvester-upgrade"
 )
 
 // upgradeHandler Creates Plan CRDs to trigger upgrades
