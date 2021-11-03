@@ -34,6 +34,10 @@ spec:
             type: object
           spec:
             properties:
+              image:
+                type: string
+              isoURL:
+                type: string
               version:
                 type: string
             required:
@@ -69,6 +73,8 @@ spec:
                   - type
                   type: object
                 type: array
+              imageID:
+                type: string
               nodeStatuses:
                 additionalProperties:
                   properties:
