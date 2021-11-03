@@ -9,13 +9,15 @@ import (
 
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	ctlharvesterv1 "github.com/harvester/harvester/pkg/generated/controllers/harvesterhci.io/v1beta1"
+	kubevirtctrl "github.com/harvester/harvester/pkg/generated/controllers/kubevirt.io/v1"
 	upgradectlv1 "github.com/harvester/harvester/pkg/generated/controllers/upgrade.cattle.io/v1"
+	"github.com/harvester/harvester/pkg/kf"
 	"github.com/harvester/harvester/pkg/settings"
 )
 
 const (
 	//system upgrade controller is deployed in cattle-system namespace
-	upgradeNamespace               = "cattle-system"
+	upgradeNamespace               = "harvester-system"
 	upgradeServiceAccount          = "system-upgrade-controller"
 	harvesterSystemNamespace       = "harvester-system"
 	harvesterVersionLabel          = "harvesterhci.io/version"
@@ -24,6 +26,8 @@ const (
 	harvesterLatestUpgradeLabel    = "harvesterhci.io/latestUpgrade"
 	harvesterUpgradeComponentLabel = "harvesterhci.io/upgradeComponent"
 	upgradeImageRepository         = "rancher/harvester-bundle"
+
+	upgradeComponentRepo = "repo"
 )
 
 // upgradeHandler Creates Plan CRDs to trigger upgrades
@@ -34,6 +38,10 @@ type upgradeHandler struct {
 	upgradeClient ctlharvesterv1.UpgradeClient
 	upgradeCache  ctlharvesterv1.UpgradeCache
 	planClient    upgradectlv1.PlanClient
+
+	vmImageCache  ctlharvesterv1.VirtualMachineImageCache
+	vmClient      kubevirtctrl.VirtualMachineClient
+	serviceClient ctlcorev1.ServiceClient
 }
 
 func (h *upgradeHandler) OnChanged(key string, upgrade *harvesterv1.Upgrade) (*harvesterv1.Upgrade, error) {
@@ -46,18 +54,31 @@ func (h *upgradeHandler) OnChanged(key string, upgrade *harvesterv1.Upgrade) (*h
 			return upgrade, err
 		}
 
+		repo := NewUpgradeRepo(upgrade, h)
+		if err := repo.Bootstrap(); err != nil {
+			// TODO: fail?
+			return upgrade, err
+		}
+
+		toUpdate := upgrade.DeepCopy()
+		initStatus(toUpdate)
+		return h.upgradeClient.Update(toUpdate)
+	}
+
+	if harvesterv1.RepoProvisioned.IsTrue(upgrade) && harvesterv1.NodesUpgraded.GetStatus(upgrade) == "" {
+		kf.Debugf("Start node upgrade")
 		disableEviction, err := h.isSingleNodeCluster()
 		if err != nil {
 			return upgrade, err
 		}
-
 		// create plans if not initialized
 		toUpdate := upgrade.DeepCopy()
 		if _, err := h.planClient.Create(serverPlan(upgrade, disableEviction)); err != nil && !apierrors.IsAlreadyExists(err) {
 			setNodesUpgradedCondition(toUpdate, corev1.ConditionFalse, "", err.Error())
 			return h.upgradeClient.Update(toUpdate)
 		}
-		initStatus(toUpdate)
+		toUpdate.Labels[upgradeStateLabel] = statePreparingRepo
+		harvesterv1.NodesUpgraded.CreateUnknownIfNotExists(toUpdate)
 		return h.upgradeClient.Update(toUpdate)
 	}
 
@@ -85,11 +106,11 @@ func (h *upgradeHandler) isSingleNodeCluster() (bool, error) {
 
 func initStatus(upgrade *harvesterv1.Upgrade) {
 	harvesterv1.UpgradeCompleted.CreateUnknownIfNotExists(upgrade)
-	harvesterv1.NodesUpgraded.CreateUnknownIfNotExists(upgrade)
+	// harvesterv1.NodesUpgraded.CreateUnknownIfNotExists(upgrade)
 	if upgrade.Labels == nil {
 		upgrade.Labels = make(map[string]string)
 	}
-	upgrade.Labels[upgradeStateLabel] = stateUpgrading
+	upgrade.Labels[upgradeStateLabel] = statePreparingRepo
 	upgrade.Labels[harvesterLatestUpgradeLabel] = "true"
 	upgrade.Status.PreviousVersion = settings.ServerVersion.Get()
 }

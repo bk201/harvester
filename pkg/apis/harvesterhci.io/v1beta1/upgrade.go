@@ -6,11 +6,13 @@ import (
 )
 
 var (
-	UpgradeCompleted condition.Cond = "completed"
+	UpgradeCompleted condition.Cond = "Completed"
+	// RepoProvisioned is true when upgrade repo is provisioned
+	RepoProvisioned condition.Cond = "RepoReady"
 	// NodesUpgraded is true when all nodes are upgraded
-	NodesUpgraded condition.Cond = "nodesUpgraded"
+	NodesUpgraded condition.Cond = "NodesUpgraded"
 	// SystemServicesUpgraded is true when Harvester chart is upgraded
-	SystemServicesUpgraded condition.Cond = "systemServicesUpgraded"
+	SystemServicesUpgraded condition.Cond = "SystemServicesUpgraded"
 )
 
 // +genclient
@@ -28,6 +30,9 @@ type Upgrade struct {
 type UpgradeSpec struct {
 	// +kubebuilder:validation:Required
 	Version string `json:"version"`
+
+	// +kubebuilder:validation:Required
+	Image string `json:"image"`
 }
 
 type UpgradeStatus struct {

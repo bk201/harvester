@@ -34,9 +34,12 @@ spec:
             type: object
           spec:
             properties:
+              image:
+                type: string
               version:
                 type: string
             required:
+            - image
             - version
             type: object
           status:

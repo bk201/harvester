@@ -9,6 +9,7 @@ import (
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	ctlharvesterv1 "github.com/harvester/harvester/pkg/generated/controllers/harvesterhci.io/v1beta1"
 	upgradev1 "github.com/harvester/harvester/pkg/generated/controllers/upgrade.cattle.io/v1"
+	"github.com/harvester/harvester/pkg/kf"
 )
 
 // podHandler syncs upgrade CRD status on upgrade pod status changes
@@ -20,9 +21,40 @@ type podHandler struct {
 }
 
 func (h *podHandler) OnChanged(key string, pod *v1.Pod) (*v1.Pod, error) {
-	if pod == nil || pod.DeletionTimestamp != nil || pod.Labels == nil || pod.Namespace != upgradeNamespace {
+	if pod == nil || pod.DeletionTimestamp != nil || pod.Labels == nil || pod.Namespace != upgradeNamespace || pod.Labels[harvesterUpgradeLabel] == "" {
 		return pod, nil
 	}
+
+	kf.Debugf("pod change: %+v", pod.Name)
+	upgrade, err := h.upgradeCache.Get(upgradeNamespace, pod.Labels[harvesterUpgradeLabel])
+	if err != nil {
+		return nil, err
+	}
+
+	component := pod.Labels[harvesterUpgradeComponentLabel]
+	switch upgrade.Labels[upgradeStateLabel] {
+	case statePreparingRepo:
+		if component == upgradeComponentRepo && len(pod.Status.ContainerStatuses) > 0 {
+			kf.Debugf("pod of upgrade %q: ready: %+v", pod.Labels[harvesterUpgradeLabel], pod.Status.ContainerStatuses[0].Ready)
+			if pod.Status.ContainerStatuses[0].Ready {
+				toUpdate := upgrade.DeepCopy()
+				toUpdate.Labels[upgradeStateLabel] = stateUpgrading
+				setRepoProvisionedCondition(toUpdate, v1.ConditionTrue, "", "")
+				_, err = h.upgradeClient.Update(toUpdate)
+				return pod, err
+			}
+		}
+	default:
+		kf.Debugf("pod controller: nothing to do, no state")
+	}
+
+	return pod, nil
+
+	// switch podType
+	// case bootstrap
+	// case upgrade Rancher
+	// case upgrade RKE2 (maybe no need)
+	// case upgrade Harvester
 
 	chartName := pod.Labels[helmChartLabel]
 	planName := pod.Labels[upgradePlanLabel]

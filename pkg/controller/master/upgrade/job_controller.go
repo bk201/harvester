@@ -14,6 +14,7 @@ import (
 
 const (
 	stateUpgrading     = "Upgrading"
+	statePreparingRepo = "PreparingRepo"
 	stateSucceeded     = "Succeeded"
 	stateFailed        = "Failed"
 	helmChartLabel     = "helmcharts.helm.cattle.io/chart"

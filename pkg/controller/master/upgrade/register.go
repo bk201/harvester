@@ -25,6 +25,10 @@ func Register(ctx context.Context, management *config.Management, options config
 	nodes := management.CoreFactory.Core().V1().Node()
 	jobs := management.BatchFactory.Batch().V1().Job()
 	pods := management.CoreFactory.Core().V1().Pod()
+	vmImages := management.HarvesterFactory.Harvesterhci().V1beta1().VirtualMachineImage()
+	vms := management.VirtFactory.Kubevirt().V1().VirtualMachine()
+	services := management.CoreFactory.Core().V1().Service()
+
 	controller := &upgradeHandler{
 		jobClient:     jobs,
 		nodeCache:     nodes.Cache(),
@@ -32,6 +36,9 @@ func Register(ctx context.Context, management *config.Management, options config
 		upgradeClient: upgrades,
 		upgradeCache:  upgrades.Cache(),
 		planClient:    plans,
+		vmImageCache:  vmImages.Cache(),
+		vmClient:      vms,
+		serviceClient: services,
 	}
 	upgrades.OnChange(ctx, upgradeControllerName, controller.OnChanged)
 

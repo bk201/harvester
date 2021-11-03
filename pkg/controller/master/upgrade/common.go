@@ -45,6 +45,13 @@ func setNodeUpgradeStatus(upgrade *harvesterv1.Upgrade, nodeName string, state, 
 	}
 }
 
+func setRepoProvisionedCondition(upgrade *harvesterv1.Upgrade, status v1.ConditionStatus, reason, message string) {
+	harvesterv1.RepoProvisioned.SetStatus(upgrade, string(status))
+	harvesterv1.RepoProvisioned.Reason(upgrade, reason)
+	harvesterv1.RepoProvisioned.Message(upgrade, message)
+	markComplete(upgrade)
+}
+
 func setNodesUpgradedCondition(upgrade *harvesterv1.Upgrade, status v1.ConditionStatus, reason, message string) {
 	harvesterv1.NodesUpgraded.SetStatus(upgrade, string(status))
 	harvesterv1.NodesUpgraded.Reason(upgrade, reason)
@@ -109,10 +116,12 @@ func agentPlan(upgrade *harvesterv1.Upgrade) *upgradev1.Plan {
 
 func basePlan(upgrade *harvesterv1.Upgrade, disableEviction bool) *upgradev1.Plan {
 	version := upgrade.Spec.Version
+	imageVersion := upgrade.Status.PreviousVersion
 	return &upgradev1.Plan{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      upgrade.Name,
-			Namespace: upgradeNamespace,
+			Namespace: "cattle-system",
+			// Namespace: upgradeNamespace,
 			Labels: map[string]string{
 				harvesterVersionLabel: version,
 				harvesterUpgradeLabel: upgrade.Name,
@@ -166,11 +175,11 @@ func basePlan(upgrade *harvesterv1.Upgrade, disableEviction bool) *upgradev1.Pla
 				},
 			},
 			Prepare: &upgradev1.ContainerSpec{
-				Image: fmt.Sprintf("%s:%s", upgradeImageRepository, version),
+				Image: fmt.Sprintf("%s:%s", upgradeImageRepository, imageVersion),
 				Args:  []string{"--prepare"},
 			},
 			Upgrade: &upgradev1.ContainerSpec{
-				Image: fmt.Sprintf("%s:%s", upgradeImageRepository, version),
+				Image: fmt.Sprintf("%s:%s", upgradeImageRepository, imageVersion),
 			},
 		},
 	}
@@ -178,6 +187,7 @@ func basePlan(upgrade *harvesterv1.Upgrade, disableEviction bool) *upgradev1.Pla
 
 func applyManifestsJob(upgrade *harvesterv1.Upgrade) *batchv1.Job {
 	version := upgrade.Spec.Version
+	imageVersion := upgrade.Status.PreviousVersion
 	return &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-apply-manifests", upgrade.Name),
@@ -202,7 +212,7 @@ func applyManifestsJob(upgrade *harvesterv1.Upgrade) *batchv1.Job {
 					Containers: []v1.Container{
 						{
 							Name:  "apply",
-							Image: fmt.Sprintf("%s:%s", upgradeImageRepository, version),
+							Image: fmt.Sprintf("%s:%s", upgradeImageRepository, imageVersion),
 							Command: []string{
 								"kubectl",
 								"apply",
@@ -456,4 +466,14 @@ func (n *nodeBuilder) WithLabel(key, value string) *nodeBuilder {
 
 func (n *nodeBuilder) Build() *v1.Node {
 	return n.node
+}
+
+func upgradeReference(u *harvesterv1.Upgrade) metav1.OwnerReference {
+	return metav1.OwnerReference{
+
+		Name:       u.Name,
+		Kind:       u.Kind,
+		UID:        u.UID,
+		APIVersion: u.APIVersion,
+	}
 }
