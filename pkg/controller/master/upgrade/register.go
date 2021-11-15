@@ -12,6 +12,7 @@ const (
 	jobControllerName     = "harvester-upgrade-job-controller"
 	podControllerName     = "harvester-upgrade-pod-controller"
 	settingControllerName = "harvester-version-setting-controller"
+	vmImageControllerName = "harvester-upgrade-vm-image-controller"
 )
 
 func Register(ctx context.Context, management *config.Management, options config.Options) error {
@@ -36,6 +37,7 @@ func Register(ctx context.Context, management *config.Management, options config
 		upgradeClient: upgrades,
 		upgradeCache:  upgrades.Cache(),
 		planClient:    plans,
+		vmImageClient: vmImages,
 		vmImageCache:  vmImages.Cache(),
 		vmClient:      vms,
 		serviceClient: services,
@@ -66,6 +68,14 @@ func Register(ctx context.Context, management *config.Management, options config
 		upgradeCache:  upgrades.Cache(),
 	}
 	pods.OnChange(ctx, podControllerName, podHandler.OnChanged)
+
+	vmImageHandler := &vmImageHandler{
+		namespace:     options.Namespace,
+		upgradeClient: upgrades,
+		upgradeCache:  upgrades.Cache(),
+	}
+	vmImages.OnChange(ctx, vmImageControllerName, vmImageHandler.OnChanged)
+
 	versionSyncer := newVersionSyncer(ctx)
 
 	settingHandler := settingHandler{

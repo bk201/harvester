@@ -25,7 +25,8 @@ const (
 	harvesterManagedLabel          = "harvesterhci.io/managed"
 	harvesterLatestUpgradeLabel    = "harvesterhci.io/latestUpgrade"
 	harvesterUpgradeComponentLabel = "harvesterhci.io/upgradeComponent"
-	upgradeImageRepository         = "rancher/harvester-bundle"
+	harvesterUpgradeImageLabel     = "harvesterhci.io/upgradeImage"
+	upgradeImageRepository         = "rancher/harvester-upgrade"
 
 	upgradeComponentRepo = "repo"
 )
@@ -39,6 +40,7 @@ type upgradeHandler struct {
 	upgradeCache  ctlharvesterv1.UpgradeCache
 	planClient    upgradectlv1.PlanClient
 
+	vmImageClient ctlharvesterv1.VirtualMachineImageClient
 	vmImageCache  ctlharvesterv1.VirtualMachineImageCache
 	vmClient      kubevirtctrl.VirtualMachineClient
 	serviceClient ctlcorev1.ServiceClient
@@ -49,19 +51,43 @@ func (h *upgradeHandler) OnChanged(key string, upgrade *harvesterv1.Upgrade) (*h
 		return upgrade, nil
 	}
 
+	repo := NewUpgradeRepo(upgrade, h)
+
 	if harvesterv1.UpgradeCompleted.GetStatus(upgrade) == "" {
 		if err := h.resetLatestUpgradeLabel(upgrade.Name); err != nil {
 			return upgrade, err
 		}
 
-		repo := NewUpgradeRepo(upgrade, h)
-		if err := repo.Bootstrap(); err != nil {
-			// TODO: fail?
-			return upgrade, err
-		}
-
 		toUpdate := upgrade.DeepCopy()
 		initStatus(toUpdate)
+
+		if upgrade.Spec.ISOURL != "" {
+			if _, err := repo.CreateImageFromISO(); err != nil {
+				return upgrade, err
+			}
+		} else {
+			_, err := repo.GetImage(upgrade.Spec.Image)
+			if err != nil {
+				return upgrade, err
+			}
+			if toUpdate.Annotations == nil {
+				toUpdate.Annotations = make(map[string]string)
+			}
+			toUpdate.Annotations[harvesterUpgradeImageLabel] = upgrade.Spec.Image
+			setImageReadyCondition(toUpdate, corev1.ConditionTrue, "", "")
+		}
+
+		return h.upgradeClient.Update(toUpdate)
+	}
+
+	if harvesterv1.ImageReady.IsTrue(upgrade) && harvesterv1.RepoProvisioned.GetStatus(upgrade) == "" {
+		repo := NewUpgradeRepo(upgrade, h)
+		if err := repo.Bootstrap(); err != nil {
+			return upgrade, err
+		}
+		toUpdate := upgrade.DeepCopy()
+		toUpdate.Labels[upgradeStateLabel] = statePreparingRepo
+		harvesterv1.RepoProvisioned.CreateUnknownIfNotExists(toUpdate)
 		return h.upgradeClient.Update(toUpdate)
 	}
 
@@ -77,7 +103,7 @@ func (h *upgradeHandler) OnChanged(key string, upgrade *harvesterv1.Upgrade) (*h
 			setNodesUpgradedCondition(toUpdate, corev1.ConditionFalse, "", err.Error())
 			return h.upgradeClient.Update(toUpdate)
 		}
-		toUpdate.Labels[upgradeStateLabel] = statePreparingRepo
+		toUpdate.Labels[upgradeStateLabel] = stateUpgradingNodes
 		harvesterv1.NodesUpgraded.CreateUnknownIfNotExists(toUpdate)
 		return h.upgradeClient.Update(toUpdate)
 	}
@@ -110,7 +136,7 @@ func initStatus(upgrade *harvesterv1.Upgrade) {
 	if upgrade.Labels == nil {
 		upgrade.Labels = make(map[string]string)
 	}
-	upgrade.Labels[upgradeStateLabel] = statePreparingRepo
+	upgrade.Labels[upgradeStateLabel] = stateCreatingUpgradeImage
 	upgrade.Labels[harvesterLatestUpgradeLabel] = "true"
 	upgrade.Status.PreviousVersion = settings.ServerVersion.Get()
 }

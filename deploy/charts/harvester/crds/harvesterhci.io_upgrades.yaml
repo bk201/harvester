@@ -36,10 +36,11 @@ spec:
             properties:
               image:
                 type: string
+              isoURL:
+                type: string
               version:
                 type: string
             required:
-            - image
             - version
             type: object
           status:
@@ -72,6 +73,8 @@ spec:
                   - type
                   type: object
                 type: array
+              imageID:
+                type: string
               nodeStatuses:
                 additionalProperties:
                   properties:

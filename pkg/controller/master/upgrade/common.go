@@ -45,6 +45,13 @@ func setNodeUpgradeStatus(upgrade *harvesterv1.Upgrade, nodeName string, state, 
 	}
 }
 
+func setImageReadyCondition(upgrade *harvesterv1.Upgrade, status v1.ConditionStatus, reason, message string) {
+	harvesterv1.ImageReady.SetStatus(upgrade, string(status))
+	harvesterv1.ImageReady.Reason(upgrade, reason)
+	harvesterv1.ImageReady.Message(upgrade, message)
+	markComplete(upgrade)
+}
+
 func setRepoProvisionedCondition(upgrade *harvesterv1.Upgrade, status v1.ConditionStatus, reason, message string) {
 	harvesterv1.RepoProvisioned.SetStatus(upgrade, string(status))
 	harvesterv1.RepoProvisioned.Reason(upgrade, reason)
@@ -116,7 +123,9 @@ func agentPlan(upgrade *harvesterv1.Upgrade) *upgradev1.Plan {
 
 func basePlan(upgrade *harvesterv1.Upgrade, disableEviction bool) *upgradev1.Plan {
 	version := upgrade.Spec.Version
-	imageVersion := upgrade.Status.PreviousVersion
+	// TODO: imageVervion should be overrided from a setting
+	// imageVersion := upgrade.Status.PreviousVersion
+	imageVersion := "kiefer-dev"
 	return &upgradev1.Plan{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      upgrade.Name,
@@ -136,10 +145,10 @@ func basePlan(upgrade *harvesterv1.Upgrade, disableEviction bool) *upgradev1.Pla
 				},
 			},
 			ServiceAccountName: upgradeServiceAccount,
-			Drain: &upgradev1.DrainSpec{
-				Force:           true,
-				DisableEviction: disableEviction,
-			},
+			// Drain: &upgradev1.DrainSpec{
+			// 	Force:           true,
+			// 	DisableEviction: disableEviction,
+			// },
 			Tolerations: []v1.Toleration{
 				{
 					Key:      labelCriticalAddonsOnly,

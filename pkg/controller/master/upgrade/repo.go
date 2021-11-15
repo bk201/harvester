@@ -11,8 +11,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kv1 "kubevirt.io/client-go/api/v1"
 
+	"github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	"github.com/harvester/harvester/pkg/kf"
+	"github.com/harvester/harvester/pkg/util"
 )
 
 const (
@@ -24,7 +26,7 @@ stages:
   - commands:
     - echo > /sysroot/harvester-serve-iso
 `
-	repoServiceNamePrefix = "upgrade-repo-"
+	repoServiceName = "upgrade-repo"
 )
 
 type UpgradeRepo struct {
@@ -41,7 +43,12 @@ func NewUpgradeRepo(upgrade *harvesterv1.Upgrade, upgradeHandler *upgradeHandler
 }
 
 func (r *UpgradeRepo) Bootstrap() error {
-	_, err := r.createVM()
+	upgradeImage, err := r.GetImage(r.upgrade.Annotations[harvesterUpgradeImageLabel])
+	if err != nil {
+		return err
+	}
+
+	_, err = r.createVM(upgradeImage)
 	if err != nil {
 		return err
 	}
@@ -50,19 +57,41 @@ func (r *UpgradeRepo) Bootstrap() error {
 	return err
 }
 
-func (r *UpgradeRepo) createVM() (*kv1.VirtualMachine, error) {
-	imageNamespace := upgradeNamespace
-	imageName := r.upgrade.Spec.Image
-	tokens := strings.Split(imageName, "/")
-	if len(tokens) > 1 {
-		imageNamespace = tokens[0]
-		imageName = tokens[1]
+func (r *UpgradeRepo) CreateImageFromISO() (*harvesterv1.VirtualMachineImage, error) {
+	displayName := fmt.Sprintf("harvester-%s", r.upgrade.Spec.Version)
+
+	imageSpec := &harvesterv1.VirtualMachineImage{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:    harvesterSystemNamespace,
+			GenerateName: "harvester-iso-",
+			Labels: map[string]string{
+				harvesterUpgradeLabel: r.upgrade.Name,
+			},
+		},
+		Spec: harvesterv1.VirtualMachineImageSpec{
+			DisplayName: displayName,
+			SourceType:  v1beta1.VirtualMachineImageSourceTypeDownload,
+			URL:         r.upgrade.Spec.ISOURL,
+		},
 	}
 
-	image, err := r.h.vmImageCache.Get(imageNamespace, imageName)
+	return r.h.vmImageClient.Create(imageSpec)
+}
+
+func (r *UpgradeRepo) GetImage(imageName string) (*harvesterv1.VirtualMachineImage, error) {
+	tokens := strings.Split(imageName, "/")
+	if len(tokens) != 2 {
+		return nil, fmt.Errorf("Invalid image format %s", imageName)
+	}
+
+	image, err := r.h.vmImageCache.Get(tokens[0], tokens[1])
 	if err != nil {
 		return nil, err
 	}
+	return image, nil
+}
+
+func (r *UpgradeRepo) createVM(image *harvesterv1.VirtualMachineImage) (*kv1.VirtualMachine, error) {
 	kf.Debugf("image: %+v", image)
 
 	vmName := fmt.Sprintf("%s%s", repoVMNamePrefix, r.upgrade.Name)
@@ -108,6 +137,7 @@ func (r *UpgradeRepo) createVM() (*kv1.VirtualMachine, error) {
 			Annotations: map[string]string{
 				"harvesterhci.io/volumeClaimTemplates": string(pvc),
 				"networks.harvesterhci.io/ips":         "[]",
+				util.RemovedPVCsAnnotationKey:          disk0Claim,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				upgradeReference(r.upgrade),
@@ -174,11 +204,11 @@ func (r *UpgradeRepo) createVM() (*kv1.VirtualMachine, error) {
 						Resources: kv1.ResourceRequirements{
 							Limits: corev1.ResourceList{
 								"cpu":    resource.MustParse("1"),
-								"memory": resource.MustParse("512M"),
+								"memory": resource.MustParse("1G"),
 							},
 							Requests: corev1.ResourceList{
 								"cpu":    resource.MustParse("1"),
-								"memory": resource.MustParse("512M"),
+								"memory": resource.MustParse("1G"),
 							},
 						},
 					},
@@ -215,11 +245,10 @@ func (r *UpgradeRepo) createVM() (*kv1.VirtualMachine, error) {
 					ReadinessProbe: &kv1.Probe{
 						Handler: kv1.Handler{
 							HTTPGet: &corev1.HTTPGetAction{
-								Path: "/harvester-iso/harvester-release",
+								Path: "/harvester-iso/harvester-release.yaml",
 								Port: intstr.FromInt(80),
 							},
 						},
-						InitialDelaySeconds: 30,
 					},
 				},
 			},
@@ -233,7 +262,7 @@ func (r *UpgradeRepo) createService() (*corev1.Service, error) {
 	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: upgradeNamespace,
-			Name:      fmt.Sprintf("%s%s", repoServiceNamePrefix, r.upgrade.Name),
+			Name:      repoServiceName,
 			OwnerReferences: []metav1.OwnerReference{
 				upgradeReference(r.upgrade),
 			},

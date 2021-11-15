@@ -13,15 +13,17 @@ import (
 )
 
 const (
-	stateUpgrading     = "Upgrading"
-	statePreparingRepo = "PreparingRepo"
-	stateSucceeded     = "Succeeded"
-	stateFailed        = "Failed"
-	helmChartLabel     = "helmcharts.helm.cattle.io/chart"
-	upgradePlanLabel   = "upgrade.cattle.io/plan"
-	upgradeNodeLabel   = "upgrade.cattle.io/node"
-	upgradeStateLabel  = "harvesterhci.io/upgradeState"
-	harvesterChartname = "harvester"
+	stateUpgrading            = "Upgrading"
+	stateCreatingUpgradeImage = "CreatingUpgradeImage"
+	statePreparingRepo        = "PreparingRepo"
+	stateUpgradingNodes       = "UpgradingNodes"
+	stateSucceeded            = "Succeeded"
+	stateFailed               = "Failed"
+	helmChartLabel            = "helmcharts.helm.cattle.io/chart"
+	upgradePlanLabel          = "upgrade.cattle.io/plan"
+	upgradeNodeLabel          = "upgrade.cattle.io/node"
+	upgradeStateLabel         = "harvesterhci.io/upgradeState"
+	harvesterChartname        = "harvester"
 )
 
 // jobHandler syncs upgrade CRD status on upgrade job changes

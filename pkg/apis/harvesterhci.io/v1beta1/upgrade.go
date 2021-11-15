@@ -7,6 +7,8 @@ import (
 
 var (
 	UpgradeCompleted condition.Cond = "Completed"
+	// ImageReady is true when upgrade image is downloaded
+	ImageReady condition.Cond = "ImageReady"
 	// RepoProvisioned is true when upgrade repo is provisioned
 	RepoProvisioned condition.Cond = "RepoReady"
 	// NodesUpgraded is true when all nodes are upgraded
@@ -31,13 +33,18 @@ type UpgradeSpec struct {
 	// +kubebuilder:validation:Required
 	Version string `json:"version"`
 
-	// +kubebuilder:validation:Required
+	// +optional
+	ISOURL string `json:"isoURL"`
+
+	// +optional
 	Image string `json:"image"`
 }
 
 type UpgradeStatus struct {
 	// +optional
 	PreviousVersion string `json:"previousVersion,omitempty"`
+	// +optional
+	ImageID string `json:"imageID,omitempty"`
 	// +optional
 	NodeStatuses map[string]NodeUpgradeStatus `json:"nodeStatuses,omitempty"`
 	// +optional
