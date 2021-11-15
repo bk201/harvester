@@ -184,11 +184,13 @@ func basePlan(upgrade *harvesterv1.Upgrade, disableEviction bool) *upgradev1.Pla
 				},
 			},
 			Prepare: &upgradev1.ContainerSpec{
-				Image: fmt.Sprintf("%s:%s", upgradeImageRepository, imageVersion),
-				Args:  []string{"--prepare"},
+				Image:   fmt.Sprintf("%s:%s", upgradeImageRepository, imageVersion),
+				Command: []string{"upgrade_node.sh"},
+				Args:    []string{"--prepare"},
 			},
 			Upgrade: &upgradev1.ContainerSpec{
-				Image: fmt.Sprintf("%s:%s", upgradeImageRepository, imageVersion),
+				Command: []string{"upgrade_node.sh"},
+				Image:   fmt.Sprintf("%s:%s", upgradeImageRepository, imageVersion),
 			},
 		},
 	}
@@ -220,14 +222,9 @@ func applyManifestsJob(upgrade *harvesterv1.Upgrade) *batchv1.Job {
 					RestartPolicy: v1.RestartPolicyNever,
 					Containers: []v1.Container{
 						{
-							Name:  "apply",
-							Image: fmt.Sprintf("%s:%s", upgradeImageRepository, imageVersion),
-							Command: []string{
-								"kubectl",
-								"apply",
-								"-f",
-								"/manifests",
-							},
+							Name:    "apply",
+							Image:   fmt.Sprintf("%s:%s", upgradeImageRepository, imageVersion),
+							Command: []string{"upgrade_manifests.sh"},
 						},
 					},
 					ServiceAccountName: "harvester",
