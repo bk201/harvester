@@ -274,7 +274,8 @@ func (r *UpgradeRepo) createService() (*corev1.Service, error) {
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				harvesterUpgradeLabel: r.upgrade.Name,
+				harvesterUpgradeLabel:          r.upgrade.Name,
+				harvesterUpgradeComponentLabel: upgradeComponentRepo,
 			},
 			Ports: []corev1.ServicePort{
 				{
