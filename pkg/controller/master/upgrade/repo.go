@@ -19,8 +19,7 @@ import (
 
 const (
 	repoVMNamePrefix = "upgrade-repo-"
-	repoVMUserData   = `
-name: "enable repo mode"
+	repoVMUserData   = `name: "enable repo mode"
 stages:
   rootfs:
   - commands:

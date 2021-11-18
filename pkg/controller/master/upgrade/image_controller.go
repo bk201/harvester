@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	harvesterv1 "github.com/harvester/harvester/pkg/apis/harvesterhci.io/v1beta1"
 	ctlharvesterv1 "github.com/harvester/harvester/pkg/generated/controllers/harvesterhci.io/v1beta1"
@@ -24,6 +25,9 @@ func (h *vmImageHandler) OnChanged(key string, image *harvesterv1.VirtualMachine
 	kf.Debugf("Image change: %+v", image)
 	upgrade, err := h.upgradeCache.Get(upgradeNamespace, image.Labels[harvesterUpgradeLabel])
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return image, nil
+		}
 		return nil, err
 	}
 
