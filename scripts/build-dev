@@ -1,0 +1,40 @@
+#!/bin/bash -eux
+
+TOP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
+cd $TOP_DIR
+
+echo "Build with tag: ${DRONE_TAG}"
+
+: ${REGISTRY:="docker.io"}
+: ${REPOSITORY_ORG:="rancher"}
+
+patch_values() {
+  cd $TOP_DIR
+  value_file="deploy/charts/harvester/values.yaml"
+
+  REPO="${REGISTRY}/${REPOSITORY_ORG}/harvester" yq -e e '.containers.apiserver.image.repository = strenv(REPO)' -i $value_file
+  TAG="${DRONE_TAG}" yq -e e '.containers.apiserver.image.tag = strenv(TAG)' -i $value_file
+
+  REPO="${REGISTRY}/${REPOSITORY_ORG}/harvester-webhook" yq -e e '.webhook.image.repository = strenv(REPO)' -i $value_file
+  TAG="${DRONE_TAG}" yq -e e '.webhook.image.tag = strenv(TAG)' -i $value_file
+
+  REPO="${REGISTRY}/${REPOSITORY_ORG}/harvester-upgrade" yq -e e '.upgrade.image.repository = strenv(REPO)' -i $value_file
+  TAG="${DRONE_TAG}" yq -e e '.upgrade.image.tag = strenv(TAG)' -i $value_file
+
+  if ! git diff --quiet --exit-code ${value_file}; then
+    git add ${value_file}
+    git commit -m "Update version"
+  fi
+}
+
+patch_values
+
+export TAG=$DRONE_TAG
+make dev
+
+skopeo copy --dest-tls-verify=false docker-daemon:rancher/harvester:${DRONE_TAG} docker://${REGISTRY}/${REPOSITORY_ORG}/harvester:${DRONE_TAG}
+skopeo copy --dest-tls-verify=false docker-daemon:rancher/harvester-webhook:${DRONE_TAG} docker://${REGISTRY}/${REPOSITORY_ORG}/harvester-webhook:${DRONE_TAG}
+skopeo copy --dest-tls-verify=false docker-daemon:rancher/harvester-upgrade:${DRONE_TAG} docker://${REGISTRY}/${REPOSITORY_ORG}/harvester-upgrade:${DRONE_TAG}
+
+make build-iso
+
