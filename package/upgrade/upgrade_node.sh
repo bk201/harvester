@@ -72,6 +72,9 @@ preload_images()
   # Common container images. Load with containerd.
   yq -e -o=json e '.images.common' $metadata | jq -r '.[] | [.list, .archive] | @tsv' |
     while IFS=$'\t' read -r list archive; do
+      if ! echo "$archive" | grep harvester-repo-images; then
+        continue
+      fi
       archive_name=$(basename -s .tar.zst $archive)
       image_list_url="$UPGRADE_REPO_BUNDLE_ROOT/$list"
       archive_url="$UPGRADE_REPO_BUNDLE_ROOT/$archive"
@@ -91,7 +94,28 @@ preload_images()
       rm -f $archive_file
     done
 
-  rm -rf $tmp_image_archives
+  yq -e -o=json e '.images.rke2' $metadata | jq -r '.[] | [.list, .archive] | @tsv' |
+    while IFS=$'\t' read -r list archive; do
+      archive_name=$(basename -s .tar.zst $archive)
+      image_list_url="$UPGRADE_REPO_BUNDLE_ROOT/$list"
+      archive_url="$UPGRADE_REPO_BUNDLE_ROOT/$archive"
+      image_list_file="${tmp_image_archives}/$(basename $list)"
+      archive_file="${tmp_image_archives}/${archive_name}.tar"
+
+      # Check if images already exist
+      curl -sfL $image_list_url | sort > $image_list_file
+      missing=$($CTR -n k8s.io images ls -q | grep -v ^sha256 | sort | comm -23 $image_list_file -)
+      if [ -z "$missing" ]; then
+        echo "Images in $image_list_file already present in the system. Skip preloading."
+        continue
+      fi
+
+      curl -sfL $archive_url | zstd -d -f --no-progress -o $archive_file
+      $CTR -n k8s.io image import $archive_file
+      rm -f $archive_file
+    done
+
+  # rm -rf $tmp_image_archives
 
   download_image_archives_from_repo "rke2" $HOST_DIR/var/lib/rancher/rke2/agent/images
   download_image_archives_from_repo "agent" $HOST_DIR/var/lib/rancher/agent/images
