@@ -132,7 +132,7 @@ containers:
       repository: docker.io/bk201z/harvester
       ## Specify the tag of image.
       ##
-      tag: pr-2009
+      tag: 1.0.1-pr2009
     ## Specify whether to run in HCI mode. This option enables additional controllers.
     ## defaults to "false", this will be enabled in ISO mode installation.
     hciMode: false
@@ -337,12 +337,12 @@ webhook:
     repository: docker.io/bk201z/harvester-webhook
     ## Specify the tag of image.
     ##
-    tag: pr-2009
+    tag: 1.0.1-pr2009
   httpsPort: 9443
 upgrade:
   image:
     repository: docker.io/bk201z/harvester-upgrade
-    tag: pr-2009
+    tag: 1.0.1-pr2009
 harvester-load-balancer:
   enabled: false
   image:
