@@ -30,7 +30,7 @@ patch_values() {
 patch_values
 
 export TAG=$DRONE_TAG
-git tag --delete $DRONE_TAG
+git tag --delete $DRONE_TAG || true
 git tag $DRONE_TAG
 make dev
 
