@@ -30,6 +30,8 @@ patch_values() {
 patch_values
 
 export TAG=$DRONE_TAG
+git tag --delete $DRONE_TAG
+git tag $DRONE_TAG
 make dev
 
 skopeo copy --dest-tls-verify=false docker-daemon:rancher/harvester:${DRONE_TAG} docker://${REGISTRY}/${REPOSITORY_ORG}/harvester:${DRONE_TAG}
