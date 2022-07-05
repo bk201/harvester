@@ -1,0 +1,6 @@
+apiVersion: v2
+appVersion: v0.0.1
+description: A Helm chart for Kubernetes
+name: kube-vip-cloud-provider
+type: application
+version: 0.2.1
