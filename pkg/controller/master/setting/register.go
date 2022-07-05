@@ -65,12 +65,12 @@ func Register(ctx context.Context, management *config.Management, options config
 		"overcommit-config":         controller.syncOvercommitConfig,
 		"vip-pools":                 controller.syncVipPoolsConfig,
 		"auto-disk-provision-paths": controller.syncNDMAutoProvisionPaths,
-		"ssl-certificates":          controller.syncSSLCertificate,
-		"ssl-parameters":            controller.syncSSLParameters,
+		// "ssl-certificates":          controller.syncSSLCertificate,
+		"ssl-parameters": controller.syncSSLParameters,
 		// for "backup-target" syncer, please check harvester-backup-target-controller
 	}
 
 	settings.OnChange(ctx, controllerName, controller.settingOnChanged)
-	apps.OnChange(ctx, controllerName, controller.appOnChanged)
+	// apps.OnChange(ctx, controllerName, controller.appOnChanged)
 	return nil
 }

@@ -9,6 +9,7 @@ import (
 )
 
 func (h *Handler) TLSSecretOnChange(_ string, secret *corev1.Secret) (*corev1.Secret, error) {
+	return nil, nil
 	if secret == nil || secret.DeletionTimestamp != nil || secret.Namespace != util.CattleSystemNamespaceName || secret.Name != util.InternalTLSSecretName {
 		return nil, nil
 	}

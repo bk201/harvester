@@ -109,7 +109,7 @@ fullnameOverride: ""
 
 ## Specify the replicas of workload.
 ##
-replicas: 3
+replicas: 1
 
 ## Specify the security context of workload.
 ##
@@ -155,7 +155,7 @@ containers:
 
       ## Specify the tag of image.
       ##
-      tag: master-head
+      tag: kiefer-dev
 
     ## Specify whether to run in HCI mode. This option enables additional controllers.
     ## defaults to "false", this will be enabled in ISO mode installation.
@@ -395,7 +395,7 @@ longhorn:
 rancherEmbedded: true
 
 webhook:
-  replicas: 3
+  replicas: 1
   debug: false
   image:
 
@@ -409,7 +409,7 @@ webhook:
 
     ## Specify the tag of image.
     ##
-    tag: master-head
+    tag: kiefer-dev
 
   httpsPort: 9443
 
