@@ -197,8 +197,98 @@ wait_evacuation_pdb_gone()
   done
 }
 
+get_last_node() {
+  if kubectl get configmap/state-$HARVESTER_UPGRADE_NAME -n $UPGRADE_NAMESPACE &>/dev/null; then
+    kubectl get configmap/state-$HARVESTER_UPGRADE_NAME -n $UPGRADE_NAMESPACE -o jsonpath='{.data.lastNode}'
+  fi
+}
+
+set_last_node() {
+  manifest=$(mktemp)
+  cat > $manifest <<EOF
+apiVersion: v1
+data:
+  lastNode: $1
+kind: ConfigMap
+metadata:
+  name: state-$HARVESTER_UPGRADE_NAME
+  namespace: $UPGRADE_NAMESPACE 
+EOF
+
+  echo "Set last upgrade node to $1"
+  kubectl apply -f $manifest
+  rm -f $manifest
+}
+
+wait_longhorn_engines() {
+  sleep 120
+
+  last_node="$(get_last_node)"
+  if [ -n "$last_node" ]; then
+    echo "Last upgrade node is $last_node"
+  fi
+
+  # For each running engine
+  kubectl get engines.longhorn.io -n longhorn-system -o json |
+    jq -r '.items | map(select(.status.currentState == "running")) | .[].metadata.name' |
+    while read lh_engine; do
+      echo Checking running engine "${lh_engine}..."
+
+      # Wait until there is at least one healthy replica on another node (so we can drain)
+      while [ true ]; do
+        # Be careful the pipes with the while-read here, we need to use process substitution to make
+        # the variable `other_replicas` right.
+        other_replicas=0
+        while read lh_replica; do
+          replica_node=$(kubectl get replicas.longhorn.io/$lh_replica -n longhorn-system -o jsonpath='{.spec.nodeID}')
+          if [ "$replica_node" != "$HARVESTER_UPGRADE_NODE_NAME" ]; then
+            other_replicas=$((other_replicas+1))
+          fi 
+        done < <(kubectl get engines.longhorn.io/$lh_engine -n longhorn-system -o json |
+                    jq -r '.status.replicaModeMap | to_entries | map(select(.value == "RW")) | .[].key')
+
+        if [ $other_replicas -ge 1 ]; then
+          echo "There are $other_replicas healthy replica(s) on other nodes. Check OK."
+          break
+        fi
+
+        echo "This node contains the last healthy replica for engine $lh_engine, will wait..."
+        sleep 10
+      done
+
+      # Wait replica in the last upgrade node to be ready
+      if [ -n "$last_node" ]; then
+        while [ true ]; do
+          ready="no"
+          found="no"
+          while read lh_replica mode; do
+            replica_node=$(kubectl get replicas.longhorn.io/$lh_replica -n longhorn-system -o jsonpath='{.spec.nodeID}')
+            if [ "$replica_node" == "$last_node" ]; then
+              echo "Found replica $lh_replica on node $last_node."
+              found="yes"
+
+              if [ $mode == "RW" ]; then
+                echo "mode is RW"
+                ready="yes"
+              fi
+            fi 
+          done < <(kubectl get engines.longhorn.io/$lh_engine -n longhorn-system -o json |
+                      jq -r '.status.replicaModeMap | to_entries | map(.key + " " + .value) | .[]')
+          
+          if [ "$ready" = "yes" -o "$found" = "no" ]; then
+            break
+          fi
+
+          echo "Waiting replica of engine $lh_engine on node $last_node to be ready..."
+          sleep 10
+        done
+      fi
+    done
+}
 
 command_pre_drain() {
+  wait_longhorn_engines
+
   shutdown_non_migrate_able_vms
 
   # Live migrate VMs
@@ -297,6 +387,8 @@ command_post_drain() {
   clean_rke2_archives
 
   kubectl taint node $HARVESTER_UPGRADE_NODE_NAME kubevirt.io/drain- || true
+  
+  set_last_node $HARVESTER_UPGRADE_NODE_NAME || true
   upgrade_os
 }
 
