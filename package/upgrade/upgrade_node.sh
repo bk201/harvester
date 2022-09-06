@@ -221,68 +221,39 @@ EOF
 }
 
 wait_longhorn_engines() {
-  sleep 120
+  node_count=$(kubectl get nodes --selector=harvesterhci.io/managed=true -o json | jq -r '.items | length')
 
-  last_node="$(get_last_node)"
-  if [ -n "$last_node" ]; then
-    echo "Last upgrade node is $last_node"
-  fi
-
-  # For each running engine
+  # For each running engine and its volume
   kubectl get engines.longhorn.io -n longhorn-system -o json |
-    jq -r '.items | map(select(.status.currentState == "running")) | .[].metadata.name' |
-    while read lh_engine; do
+    jq -r '.items | map(select(.status.currentState == "running")) | map(.metadata.name + " " + .metadata.labels.longhornvolume) | .[]' |
+    while read lh_engine lh_volume; do
       echo Checking running engine "${lh_engine}..."
 
-      # Wait until there is at least one healthy replica on another node (so we can drain)
+      # Wait until volume turn healthy (except two-node clusters)
       while [ true ]; do
-        # Be careful the pipes with the while-read here, we need to use process substitution to make
-        # the variable `other_replicas` right.
-        other_replicas=0
-        while read lh_replica; do
-          replica_node=$(kubectl get replicas.longhorn.io/$lh_replica -n longhorn-system -o jsonpath='{.spec.nodeID}')
-          if [ "$replica_node" != "$HARVESTER_UPGRADE_NODE_NAME" ]; then
-            other_replicas=$((other_replicas+1))
-          fi 
-        done < <(kubectl get engines.longhorn.io/$lh_engine -n longhorn-system -o json |
-                    jq -r '.status.replicaModeMap | to_entries | map(select(.value == "RW")) | .[].key')
+        if [ $node_count -gt 2 ];then
+          robustness=$(kubectl get volumes.longhorn.io/$lh_volume -n longhorn-system -o jsonpath='{.status.robustness}')
+          if [ "$robustness" = "healthy" ]; then
+            echo "Volume $lh_volume is healthy."
+            break
+          fi
+        else
+          # two node situation, make sure two replicas are healthy
+          ready_replicas=$(kubectl get engines.longhorn.io/$lh_engine -n longhorn-system -o json |
+                             jq -r '.status.replicaModeMap | to_entries | map(select(.value == "RW")) | length')
+          if [ $ready_replicas -eq 2 ]; then
+            break
+          fi
+        fi
 
-        if [ $other_replicas -ge 1 ]; then
-          echo "There are $other_replicas healthy replica(s) on other nodes. Check OK."
+        if [ -f "/tmp/skip-$lh_volume" ]; then
+          echo "Skip $lh_volume."
           break
         fi
 
-        echo "This node contains the last healthy replica for engine $lh_engine, will wait..."
+        echo "Waiting for volume $lh_volume to be healthy..."
         sleep 10
       done
-
-      # Wait replica in the last upgrade node to be ready
-      if [ -n "$last_node" ]; then
-        while [ true ]; do
-          ready="no"
-          found="no"
-          while read lh_replica mode; do
-            replica_node=$(kubectl get replicas.longhorn.io/$lh_replica -n longhorn-system -o jsonpath='{.spec.nodeID}')
-            if [ "$replica_node" == "$last_node" ]; then
-              echo "Found replica $lh_replica on node $last_node."
-              found="yes"
-
-              if [ $mode == "RW" ]; then
-                echo "mode is RW"
-                ready="yes"
-              fi
-            fi 
-          done < <(kubectl get engines.longhorn.io/$lh_engine -n longhorn-system -o json |
-                      jq -r '.status.replicaModeMap | to_entries | map(.key + " " + .value) | .[]')
-          
-          if [ "$ready" = "yes" -o "$found" = "no" ]; then
-            break
-          fi
-
-          echo "Waiting replica of engine $lh_engine on node $last_node to be ready..."
-          sleep 10
-        done
-      fi
     done
 }
 
