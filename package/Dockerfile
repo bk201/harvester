@@ -17,7 +17,7 @@ ENV HARVESTER_API_UI_VERSION 1.1.9
 
 ARG ARCH=amd64
 ARG VERSION=dev
-ENV HARVESTER_SERVER_VERSION ${VERSION}
+ENV HARVESTER_SERVER_VERSION v1.0.3
 ENV TINI_VERSION v0.19.0
 ENV TINI_URL_amd64=https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini \
     TINI_URL_arm64=https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-arm64 \

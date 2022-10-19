@@ -134,7 +134,7 @@ func preparePlan(upgrade *harvesterv1.Upgrade) *upgradev1.Plan {
 			},
 		},
 		Spec: upgradev1.PlanSpec{
-			Concurrency: int64(1),
+			Concurrency: int64(10),
 			Version:     planVersion,
 			NodeSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
