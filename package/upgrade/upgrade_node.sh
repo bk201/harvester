@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 ELEMENTAL_DIR="elemental_cli"
@@ -567,6 +567,30 @@ command_post_drain() {
   upgrade_os
 }
 
+wait_helm_bundles() {
+  echo "Waiting for all Helm bundle to be ready..."
+
+  while [ true ]; do
+    bundles=$(kubectl get bundles.fleet.cattle.io -A -o yaml)
+    pending=$(echo "$bundles" | yq '.items | any_c(.spec.helm != null and .status.summary.ready == 0)')
+
+    if [ -f "/tmp/skip-wait-helm-bundles" ]; then
+      echo "Skip waiting for all Helm bundles to be ready."
+      break
+    fi
+
+    if [ "$pending" == "false" ]; then
+      echo "All Helm bundles are ready."
+      break
+    fi
+
+    echo "There are non-ready Helm bundles:"
+    echo "$bundles" | yq '.items[] | select(.spec.helm != null and .status.summary.ready == 0) | .metadata.namespace + "/" + .metadata.name'
+    echo "Wait for 10 seconds..."
+    sleep 10
+  done
+}
+
 command_single_node_upgrade() {
   echo "Upgrade single node"
 
@@ -586,15 +610,30 @@ command_single_node_upgrade() {
   # Add logging related kube-audit policy file
   patch_logging_event_audit
 
+  # During the RKE2 upgrade, the kube-api server will be restarted and fleet-agent will restart.
+  # The fleet agent might not clear applying charts state in this case.
+  # We stop the agent and let it gracefully handle the clearn up.
+  echo "Scale down the fleet agent..."
+  kubectl scale --replicas=0 deployment/fleet-agent -n cattle-fleet-local-system
+
   # Upgarde RKE2
   upgrade_rke2
   wait_rke2_upgrade
+  echo "wait_rke2_upgrade OK!"
+  echo "Start the fleet agent..."
+
+  kubectl get bundles -A || true
+  kubectl scale --replicas=1 deployment/fleet-agent -n cattle-fleet-local-system
+  wait_helm_bundles
+  kubectl get bundles -A || true
   clean_rke2_archives
 
   convert_nodenetwork_to_vlanconfig
 
   # Upgrade OS
   upgrade_os
+
+  cp -r /host/var/log/pods /host/root/ || true
 }
 
 mkdir -p $UPGRADE_TMP_DIR
