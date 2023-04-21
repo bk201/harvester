@@ -8,4 +8,4 @@ else
     exec "$@"
 fi
 
-chown -R $DAPPER_UID:$DAPPER_GID .
+#chown -R $DAPPER_UID:$DAPPER_GID .
