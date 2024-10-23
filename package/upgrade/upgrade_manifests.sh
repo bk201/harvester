@@ -301,6 +301,10 @@ upgrade_rancher() {
   patch_fleet_cluster
   wait_for_fleet_agent $pre_patch_timestamp
   wait_rollout cattle-fleet-local-system statefulset fleet-agent
+
+  echo "sleep 300s"
+  sleep 300
+  echo "sleep 300s ok"
 }
 
 update_local_rke_state_secret() {
