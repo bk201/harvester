@@ -1,5 +1,5 @@
 UPGRADE_NAMESPACE="harvester-system"
-UPGRADE_REPO_URL=http://upgrade-repo-$HARVESTER_UPGRADE_NAME.$UPGRADE_NAMESPACE/harvester-iso
+: ${UPGRADE_REPO_URL:=http://upgrade-repo-$HARVESTER_UPGRADE_NAME.$UPGRADE_NAMESPACE/harvester-iso}
 UPGRADE_REPO_VM_NAME="upgrade-repo-$HARVESTER_UPGRADE_NAME"
 UPGRADE_REPO_RELEASE_FILE="$UPGRADE_REPO_URL/harvester-release.yaml"
 UPGRADE_REPO_SQUASHFS_IMAGE="$UPGRADE_REPO_URL/rootfs.squashfs"
@@ -240,6 +240,10 @@ download_image_archives_from_repo() {
 
 detect_upgrade()
 {
+  if [ -n "$UPGRADE_MOCK_PREVIOUS_VERSION" ]; then
+    UPGRADE_PREVIOUS_VERSION=$UPGRADE_MOCK_PREVIOUS_VERSION
+    return
+  fi
   upgrade_obj=$(kubectl get upgrades.harvesterhci.io $HARVESTER_UPGRADE_NAME -n $UPGRADE_NAMESPACE -o yaml)
 
   UPGRADE_PREVIOUS_VERSION=$(echo "$upgrade_obj" | yq e .status.previousVersion -)
