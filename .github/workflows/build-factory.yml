@@ -148,6 +148,7 @@ jobs:
           ARCH=${{ env.arch }}
           VERSION=${{ inputs.build_version }}
           HARVESTER_INSTALLER_REF=${{ inputs.image_tag }}
+          HARVESTER_REGISTRY=${{ env.DOCKER_REGISTRY }}
   
   manifest-images:
     name: Manifest images
