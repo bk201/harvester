@@ -16,10 +16,13 @@ on:
           required: true
           type: string
 
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/master' && !startsWith(github.ref, 'refs/heads/v') && !startsWith(github.ref, 'refs/tags/v') }}
+
+env:
+  REGISTRY_NAMESPACE: ${{ vars.PRIME_BUILD == 'true' && 'harvester' || 'rancher'}}
+
 jobs:
   build-binaries:
     name: Build binaries
@@ -98,18 +101,10 @@ jobs:
         cp -r ./bin/harvester-webhook ./package/
         cp -r ./bin/upgrade-helper ./package/upgrade/
 
-    - name: Read Secrets
-      uses: rancher-eio/read-vault-secrets@main
+    - name: Setup Registry Authentication
+      uses: ./.github/actions/setup-registry-auth
       with:
-        secrets: |
-          secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials username | DOCKER_USERNAME ;
-          secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials password | DOCKER_PASSWORD ;
-
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ env.DOCKER_USERNAME }}
-        password: ${{ env.DOCKER_PASSWORD }}
+        prime_build: ${{ vars.PRIME_BUILD }}
 
     # rancher/harvester image
     - name: docker-publish-harvester
@@ -118,7 +113,7 @@ jobs:
         context: package/
         push: true
         platforms: linux/${{ env.arch }}
-        tags: rancher/harvester:${{ inputs.image_tag }}-${{ env.arch }}
+        tags: ${{ env.DOCKER_REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/harvester:${{ inputs.image_tag }}-${{ env.arch }}
         file: package/Dockerfile
         build-args: |
           ARCH=${{ env.arch }}
@@ -131,7 +126,7 @@ jobs:
         context: package/
         push: true
         platforms: linux/${{ env.arch }}
-        tags: rancher/harvester-webhook:${{ inputs.image_tag }}-${{ env.arch }}
+        tags: ${{ env.DOCKER_REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/harvester-webhook:${{ inputs.image_tag }}-${{ env.arch }}
         file: package/Dockerfile.webhook
         build-args: |
           ARCH=${{ env.arch }}
@@ -147,7 +142,7 @@ jobs:
         context: package/upgrade
         push: true
         platforms: linux/${{ env.arch }}
-        tags: rancher/harvester-upgrade:${{ inputs.image_tag }}-${{ env.arch }}
+        tags: ${{ env.DOCKER_REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/harvester-upgrade:${{ inputs.image_tag }}-${{ env.arch }}
         file: package/upgrade/Dockerfile
         build-args: |
           ARCH=${{ env.arch }}
@@ -171,45 +166,35 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Read Secrets
-      uses: rancher-eio/read-vault-secrets@main
+    - name: Setup Registry Authentication
+      uses: ./.github/actions/setup-registry-auth
       with:
-        secrets: |
-          secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials username | DOCKER_USERNAME ;
-          secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials password | DOCKER_PASSWORD ;
+        prime_build: ${{ vars.PRIME_BUILD }}
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
+    # Create multi-architecture manifests
+    - name: Create manifest for harvester
+      uses: ./.github/actions/create-manifest
       with:
-        username: ${{ env.DOCKER_USERNAME }}
-        password: ${{ env.DOCKER_PASSWORD }}
+        image-name: harvester
+        image-tag: ${{ inputs.image_tag }}
+        registry: ${{ env.DOCKER_REGISTRY }}
+        namespace: ${{ env.REGISTRY_NAMESPACE }}
 
-    # rancher/harvester image
-    - name: docker-pull-harvester
-      run: |
-        docker pull --platform linux/amd64 rancher/harvester:${{ inputs.image_tag }}-amd64
-        docker pull --platform linux/arm64 rancher/harvester:${{ inputs.image_tag }}-arm64
-        docker buildx imagetools create -t rancher/harvester:${{ inputs.image_tag }} \
-          rancher/harvester:${{ inputs.image_tag }}-amd64 \
-          rancher/harvester:${{ inputs.image_tag }}-arm64
+    - name: Create manifest for harvester-webhook
+      uses: ./.github/actions/create-manifest
+      with:
+        image-name: harvester-webhook
+        image-tag: ${{ inputs.image_tag }}
+        registry: ${{ env.DOCKER_REGISTRY }}
+        namespace: ${{ env.REGISTRY_NAMESPACE }}
 
-    # rancher/harvester-webhook image
-    - name: docker-pull-harvester-webhook
-      run: |
-        docker pull --platform linux/amd64 rancher/harvester-webhook:${{ inputs.image_tag }}-amd64
-        docker pull --platform linux/arm64 rancher/harvester-webhook:${{ inputs.image_tag }}-arm64
-        docker buildx imagetools create -t rancher/harvester-webhook:${{ inputs.image_tag }} \
-          rancher/harvester-webhook:${{ inputs.image_tag }}-amd64 \
-          rancher/harvester-webhook:${{ inputs.image_tag }}-arm64
-        
-    # rancher/harvester-upgrade image
-    - name: docker-pull-harvester-upgrade
-      run: |
-        docker pull --platform linux/amd64 rancher/harvester-upgrade:${{ inputs.image_tag }}-amd64
-        docker pull --platform linux/arm64 rancher/harvester-upgrade:${{ inputs.image_tag }}-arm64
-        docker buildx imagetools create -t rancher/harvester-upgrade:${{ inputs.image_tag }} \
-          rancher/harvester-upgrade:${{ inputs.image_tag }}-amd64 \
-          rancher/harvester-upgrade:${{ inputs.image_tag }}-arm64
+    - name: Create manifest for harvester-upgrade
+      uses: ./.github/actions/create-manifest
+      with:
+        image-name: harvester-upgrade
+        image-tag: ${{ inputs.image_tag }}
+        registry: ${{ env.DOCKER_REGISTRY }}
+        namespace: ${{ env.REGISTRY_NAMESPACE }}
 
   build-iso:
     name: Build ISO
@@ -254,7 +239,7 @@ jobs:
       run: |
         make build-iso
       env:
-        REPO: rancher
+        REPO: ${{ env.REGISTRY_NAMESPACE }}
         DRONE_BRANCH: ${{ env.branch }}
 
     - name: build-tag-iso
@@ -262,23 +247,14 @@ jobs:
       run: |
         make build-iso
       env:
-        REPO: rancher
+        REPO: ${{ env.REGISTRY_NAMESPACE }}
         DRONE_BRANCH: ${{ github.ref_name }}
         DRONE_TAG: ${{ github.ref_name }}
 
-    - name: Read Secrets
-      uses: rancher-eio/read-vault-secrets@main
+    - name: Setup Registry Authentication
+      uses: ./.github/actions/setup-registry-auth
       with:
-        secrets: |
-          secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials username | DOCKER_USERNAME ;
-          secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials password | DOCKER_PASSWORD ;
-          secret/data/github/repo/${{ github.repository }}/google-auth/harvester/credentials token | GOOGLE_AUTH ;
-
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ env.DOCKER_USERNAME }}
-        password: ${{ env.DOCKER_PASSWORD }}
+        prime_build: ${{ vars.PRIME_BUILD }}
 
     # rancher/harvester-cluster-repo image
     - name: docker-publish-harvester-cluster-repo
@@ -287,7 +263,7 @@ jobs:
         context: dist/harvester-cluster-repo
         push: true
         platforms: linux/${{ env.arch }}
-        tags: rancher/harvester-cluster-repo:${{ inputs.image_tag }}-${{ env.arch }}
+        tags: ${{ env.DOCKER_REGISTRY }}/${{ env.REGISTRY_NAMESPACE }}/harvester-cluster-repo:${{ inputs.image_tag }}-${{ env.arch }}
         file: dist/harvester-cluster-repo/Dockerfile
 
     - name: Login to Google Cloud
@@ -333,27 +309,20 @@ jobs:
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Read Secrets
-      uses: rancher-eio/read-vault-secrets@main
+    - name: Setup Registry Authentication
+      uses: ./.github/actions/setup-registry-auth
       with:
-        secrets: |
-          secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials username | DOCKER_USERNAME ;
-          secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials password | DOCKER_PASSWORD ;
-
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ env.DOCKER_USERNAME }}
-        password: ${{ env.DOCKER_PASSWORD }}
+        prime_build: ${{ vars.PRIME_BUILD }}
 
     # rancher/harvester-cluster-repo image
-    - name: docker-pull-harvester-cluster-repo
-      run: |
-        docker pull --platform linux/amd64 rancher/harvester-cluster-repo:${{ inputs.image_tag }}-amd64
-        docker pull --platform linux/arm64 rancher/harvester-cluster-repo:${{ inputs.image_tag }}-arm64
-        docker buildx imagetools create -t rancher/harvester-cluster-repo:${{ inputs.image_tag }} \
-          rancher/harvester-cluster-repo:${{ inputs.image_tag }}-amd64 \
-          rancher/harvester-cluster-repo:${{ inputs.image_tag }}-arm64
+    - name: Create manifest for harvester-cluster-repo
+      uses: ./.github/actions/create-manifest
+      with:
+        image-name: harvester-cluster-repo
+        image-tag: ${{ inputs.image_tag }}
+        registry: ${{ env.DOCKER_REGISTRY }}
+        namespace: ${{ env.REGISTRY_NAMESPACE }}
