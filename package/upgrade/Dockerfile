@@ -1,7 +1,8 @@
 ARG HARVESTER_INSTALLER_REF=master-head
 ARG HARVESTER_REGISTRY=docker.io
 FROM registry.opensuse.org/isv/rancher/harvester/os/dev/main/baseos:latest as baseos
-FROM ${HARVESTER_REGISTRY}/rancher/harvester-installer:${HARVESTER_INSTALLER_REF} as installer
+#FROM ${HARVESTER_REGISTRY}/rancher/harvester-installer:${HARVESTER_INSTALLER_REF} as installer
+FROM rancher/harvester-installer:v1.7.0 as installer
 FROM registry.suse.com/bci/bci-base:15.7
 
 ARG ARCH=amd64

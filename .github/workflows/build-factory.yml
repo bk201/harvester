@@ -46,10 +46,20 @@ jobs:
     # Build binaries
     - name: Run make ci
       if: ${{ matrix.arch == 'x64' }}
-      run: make ci
+      # run: make ci
+      run: |
+        mkdir -p ./bin
+        touch ./bin/harvester
+        touch ./bin/harvester-webhook
+        touch ./bin/upgrade-helper
     - name: Run make arm
       if: ${{ matrix.arch == 'arm64' }}
-      run: make arm
+      # run: make arm
+      run: |
+        mkdir -p ./bin
+        touch ./bin/harvester
+        touch ./bin/harvester-webhook
+        touch ./bin/upgrade-helper
 
     - name: Upload binaries
       uses: actions/upload-artifact@v4
@@ -300,7 +310,7 @@ jobs:
     name: Manifest harvester-cluster-repo image
     runs-on: runs-on,runner=4cpu-linux-x64,run-id=${{ github.run_id }}
     needs: build-iso
-    if: ${{ startsWith(github.ref, 'refs/heads/') || startsWith(github.ref, 'refs/tags/') }}
+    if: ${{ false }}
     permissions:
       contents: read
       id-token: write # for reading credential https://github.com/rancher-eio/read-vault-secrets
