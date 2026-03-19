@@ -4,13 +4,11 @@ set -e
 
 INSTALLER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
 HARVESTER_DIR="$( cd "${INSTALLER_DIR}/.." &> /dev/null && pwd )"
-SCRIPTS_DIR="${INSTALLER_DIR}/scripts"
+HARVESTER_SCRIPT_DIR="${HARVESTER_DIR}/scripts"
+INSTALLER_SCRIPT_DIR="${INSTALLER_DIR}/scripts"
 ADDONS_PATH="${INSTALLER_DIR}/addons"
 
-cd ${HARVESTER_DIR}
-
-# Source harvester version for COMMIT and ARCH
-source ./scripts/version
+# --- start loading addon versions ---
 
 # Source addon versions
 if [ ! -d ${ADDONS_PATH} ];then
@@ -35,20 +33,18 @@ MONITORING_VERSION=${RANCHER_MONITORING_CHART_VERSION}
 LOGGING_VERSION=${RANCHER_LOGGING_CHART_VERSION}
 echo "HARVESTER_EVENTROUTER_FULL_TAG: $HARVESTER_EVENTROUTER_FULL_TAG"
 
-# Source harvester version metadata
-HARVESTER_VERSION=$(source ./scripts/version &> /dev/null; echo $VERSION)
-HARVESTER_APP_VERSION=$(source ./scripts/version &> /dev/null; echo $APP_VERSION)
-HARVESTER_CHART_VERSION=$(source ./scripts/version &> /dev/null; echo $CHART_VERSION)
-HARVESTER_KUBEVIRT_VERSION=$(yq e '.kubevirt-operator.containers.operator.image.tag' ./deploy/charts/harvester/values.yaml)
-HARVESTER_MIN_UPGRADABLE_VERSION=$(source ./scripts/version &> /dev/null; echo $MIN_UPGRADABLE_VERSION)
+# --- finish loading addon versions ---
 
-# Source RKE2 and Rancher versions
-RKE2_VERSION="v1.35.2+rke2r1"
-RANCHER_VERSION="v2.14.0-alpha12"
+source ${HARVESTER_SCRIPT_DIR}/version
 
-# Installer version is set to harvester version
+source ${INSTALLER_SCRIPT_DIR}/version-rke2
+source ${INSTALLER_SCRIPT_DIR}/version-rancher
+
 INSTALLER_VERSION=${VERSION}
+HARVESTER_VERSION=${VERSION}
+HARVESTER_CHART_VERSION=${CHART_VERSION}
 
+echo "=============================="
 echo "Installer version: ${INSTALLER_VERSION}"
 echo "Harvester version: ${HARVESTER_VERSION}"
 echo "Harvester chart version: ${HARVESTER_CHART_VERSION}"
@@ -62,9 +58,9 @@ echo "The ARCH is: ${ARCH}"
 echo "Generating addon templates..."
 cd ${ADDONS_PATH}
 GOWORK=off go run . -generateTemplates -path ${INSTALLER_DIR}/pkg/config/templates
-cd ${HARVESTER_DIR}
 
 # Build the installer binary
+cd ${HARVESTER_DIR}
 mkdir -p bin
 
 LINKFLAGS="-X github.com/harvester/harvester-installer/pkg/config.RKE2Version=$RKE2_VERSION
@@ -88,6 +84,6 @@ if [ "$(uname)" = "Linux" ]; then
 fi
 
 echo "Building harvester-installer binary..."
-CGO_ENABLED=0 go build -gcflags "${OTHER_COMPILERFLAGS}" -ldflags "$LINKFLAGS $OTHER_LINKFLAGS" -o bin/harvester-installer ./installer
+CGO_ENABLED=0 go build -gcflags "${OTHER_COMPILERFLAGS}" -ldflags "$LINKFLAGS $OTHER_LINKFLAGS" -o bin/harvester-installer ./cmd/installer
 
 echo "Build complete: bin/harvester-installer"
