@@ -40,4 +40,4 @@ build_binary "upgrade-helper" "./cmd/upgradehelper"
 
 # Build harvester-installer binary
 echo "Building harvester-installer..."
-./installer/scripts/build-installer
+./scripts/build-installer
