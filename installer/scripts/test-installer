@@ -1,0 +1,37 @@
+#!/bin/bash
+# DESC: Run tests for harvester-installer
+set -e
+
+INSTALLER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
+HARVESTER_DIR="$( cd "${INSTALLER_DIR}/.." &> /dev/null && pwd )"
+ADDONS_PATH="${INSTALLER_DIR}/addons"
+
+cd ${HARVESTER_DIR}
+
+# Load and source addon versions (needed for template generation in tests)
+if [ ! -d ${ADDONS_PATH} ];then
+    echo "No existing addons source on ${ADDONS_PATH}. Pulling..."
+    git clone --branch main --single-branch --depth 1 https://github.com/harvester/addons.git ${ADDONS_PATH}
+else
+    echo "Addon path ${ADDONS_PATH} is existing, reuse"
+fi
+
+echo "Loading addon version information..."
+source ${ADDONS_PATH}/version_info
+
+# Generate addon templates for tests
+echo "Generating addon templates for tests..."
+cd ${ADDONS_PATH}
+go run . -generateTemplates
+# Copy the generated addon yamls to installer
+cp ${ADDONS_PATH}/*.yaml ${INSTALLER_DIR}/pkg/config/templates
+
+echo "All existing template files"
+ls -alth ${INSTALLER_DIR}/pkg/config/templates
+echo "The templated rancherd-22-addons.yaml file"
+cat ${INSTALLER_DIR}/pkg/config/templates/rancherd-22-addons.yaml
+
+cd ${HARVESTER_DIR}
+
+echo "Running installer tests"
+go test -cover -tags=test ./installer/pkg/...

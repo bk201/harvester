@@ -1,0 +1,29 @@
+#!/bin/bash
+# DESC: Validate harvester-installer code
+set -e
+
+INSTALLER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
+HARVESTER_DIR="$( cd "${INSTALLER_DIR}/.." &> /dev/null && pwd )"
+
+cd ${HARVESTER_DIR}
+
+echo "Running installer validation"
+
+PACKAGES="$(go list ./installer/...)"
+
+if ! command -v golangci-lint; then
+    echo "Skipping validation: no golangci-lint available"
+    exit
+fi
+
+echo "Running validation"
+
+echo "Running: golangci-lint on installer"
+cd ${INSTALLER_DIR}
+golangci-lint run
+cd ${HARVESTER_DIR}
+
+echo "Running: go fmt on installer"
+test -z "$(go fmt ${PACKAGES} | tee /dev/stderr)"
+
+echo "Installer validation complete"

@@ -1,0 +1,93 @@
+#!/bin/bash
+# DESC: Build the harvester-installer binary
+set -e
+
+INSTALLER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
+HARVESTER_DIR="$( cd "${INSTALLER_DIR}/.." &> /dev/null && pwd )"
+SCRIPTS_DIR="${INSTALLER_DIR}/scripts"
+ADDONS_PATH="${INSTALLER_DIR}/addons"
+
+cd ${HARVESTER_DIR}
+
+# Source harvester version for COMMIT and ARCH
+source ./scripts/version
+
+# Source addon versions
+if [ ! -d ${ADDONS_PATH} ];then
+    echo "No existing addons source on ${ADDONS_PATH}. Pulling..."
+    git clone --branch main --single-branch --depth 1 https://github.com/harvester/addons.git ${ADDONS_PATH}
+else
+    echo "Addon path ${ADDONS_PATH} is existing, reuse"
+fi
+
+echo "Loading addon version information..."
+source ${ADDONS_PATH}/version_info
+source ${ADDONS_PATH}/scripts/hack/patch-rancher-monitoring
+source ${ADDONS_PATH}/scripts/hack/patch-rancher-logging
+source ${ADDONS_PATH}/scripts/hack/patch-rancher-monitoring-crd
+
+if [[ -z ${RANCHER_LOGGING_CHART_VERSION} ]] || [[ -z ${RANCHER_MONITORING_CHART_VERSION} ]] || [[ -z ${HARVESTER_EVENTROUTER_FULL_TAG} ]]; then
+    echo "Monitoring, logging and eventrouter are not fully defined on ${ADDONS_PATH}/version_info"
+    exit 1
+fi
+
+MONITORING_VERSION=${RANCHER_MONITORING_CHART_VERSION}
+LOGGING_VERSION=${RANCHER_LOGGING_CHART_VERSION}
+echo "HARVESTER_EVENTROUTER_FULL_TAG: $HARVESTER_EVENTROUTER_FULL_TAG"
+
+# Source harvester version metadata
+HARVESTER_VERSION=$(source ./scripts/version &> /dev/null; echo $VERSION)
+HARVESTER_APP_VERSION=$(source ./scripts/version &> /dev/null; echo $APP_VERSION)
+HARVESTER_CHART_VERSION=$(source ./scripts/version &> /dev/null; echo $CHART_VERSION)
+HARVESTER_KUBEVIRT_VERSION=$(yq e '.kubevirt-operator.containers.operator.image.tag' ./deploy/charts/harvester/values.yaml)
+HARVESTER_MIN_UPGRADABLE_VERSION=$(source ./scripts/version &> /dev/null; echo $MIN_UPGRADABLE_VERSION)
+
+# Source RKE2 and Rancher versions
+RKE2_VERSION="v1.35.2+rke2r1"
+RANCHER_VERSION="v2.14.0-alpha12"
+
+# Installer version is set to harvester version
+INSTALLER_VERSION=${VERSION}
+
+echo "Installer version: ${INSTALLER_VERSION}"
+echo "Harvester version: ${HARVESTER_VERSION}"
+echo "Harvester chart version: ${HARVESTER_CHART_VERSION}"
+echo "Rancher version: ${RANCHER_VERSION}"
+echo "Rancher monitoring version: ${MONITORING_VERSION}"
+echo "Rancher logging version: ${LOGGING_VERSION}"
+echo "Kubeovn operator version: ${KUBEOVN_OPERATOR_CHART_VERSION}"
+echo "The ARCH is: ${ARCH}"
+
+# Generate addon templates
+echo "Generating addon templates..."
+cd ${ADDONS_PATH}
+GOWORK=off go run . -generateTemplates -path ${INSTALLER_DIR}/pkg/config/templates
+cd ${HARVESTER_DIR}
+
+# Build the installer binary
+mkdir -p bin
+
+LINKFLAGS="-X github.com/harvester/harvester-installer/pkg/config.RKE2Version=$RKE2_VERSION
+           -X github.com/harvester/harvester-installer/pkg/config.RancherVersion=$RANCHER_VERSION
+           -X github.com/harvester/harvester-installer/pkg/version.Version=$INSTALLER_VERSION
+           -X github.com/harvester/harvester-installer/pkg/version.GitCommit=$COMMIT
+           -X github.com/harvester/harvester-installer/pkg/version.HarvesterVersion=$HARVESTER_VERSION
+           -X github.com/harvester/harvester-installer/pkg/config.HarvesterChartVersion=$HARVESTER_CHART_VERSION
+           -X github.com/harvester/harvester-installer/pkg/config.MonitoringChartVersion=$MONITORING_VERSION
+           -X github.com/harvester/harvester-installer/pkg/config.LoggingChartVersion=$LOGGING_VERSION
+           -X github.com/harvester/harvester-installer/pkg/config.KubeovnOperatorChartVersion=$KUBEOVN_OPERATOR_CHART_VERSION
+           $LINKFLAGS"
+
+if [ "$(uname)" = "Linux" ]; then
+    if [ -n "${REMOTE_DEBUG}" ]; then
+        OTHER_COMPILERFLAGS="all=-N -l"
+        OTHER_LINKFLAGS="-extldflags -static"
+    else
+        OTHER_LINKFLAGS="-extldflags -static -s"
+    fi
+fi
+
+echo "Building harvester-installer binary..."
+CGO_ENABLED=0 go build -gcflags "${OTHER_COMPILERFLAGS}" -ldflags "$LINKFLAGS $OTHER_LINKFLAGS" -o bin/harvester-installer ./installer
+
+echo "Build complete: bin/harvester-installer"
