@@ -1,0 +1,295 @@
+#!/bin/bash
+set -e
+
+TOP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
+HARVESTER_DIR="$( cd "${TOP_DIR}/.." &> /dev/null && pwd )"
+SCRIPTS_DIR="${TOP_DIR}/scripts"
+PACKAGE_HARVESTER_OS_DIR="${TOP_DIR}/package/harvester-os"
+PACKAGE_HARVESTER_REPO_DIR="${TOP_DIR}/package/harvester-repo"
+: ${RKE2_IMAGE_REPO:=https://github.com/rancher/rke2/releases/download/}
+
+cd ${TOP_DIR}
+
+source ${SCRIPTS_DIR}/lib/addon
+addons_path=${HARVESTER_DIR}/../addons
+load_and_source_addon ${addons_path} https://github.com/harvester/addons.git main
+# generate template file in ${addons_path}, and this is used for subsequent checks
+generate_addon ${addons_path}
+
+cd ${TOP_DIR}
+
+source ${SCRIPTS_DIR}/version-rke2
+source ${SCRIPTS_DIR}/version-rancher
+source ${SCRIPTS_DIR}/lib/http
+source ${SCRIPTS_DIR}/lib/image
+
+MONITORING_VERSION=${RANCHER_MONITORING_CHART_VERSION}
+LOGGING_VERSION=${RANCHER_LOGGING_CHART_VERSION}
+echo "Rancher monitoring version: ${MONITORING_VERSION}"
+echo "Rancher logging version: ${LOGGING_VERSION}"
+
+BUNDLE_DIR="${PACKAGE_HARVESTER_OS_DIR}/iso/bundle"
+CHARTS_DIR="${PACKAGE_HARVESTER_REPO_DIR}/charts"
+IMAGES_DIR="${BUNDLE_DIR}/harvester/images"
+IMAGES_LISTS_DIR="${BUNDLE_DIR}/harvester/images-lists"
+RANCHERD_IMAGES_DIR="${BUNDLE_DIR}/rancherd/images"
+mkdir -p ${CHARTS_DIR}
+mkdir -p ${IMAGES_DIR}
+mkdir -p ${IMAGES_LISTS_DIR}
+mkdir -p ${RANCHERD_IMAGES_DIR}
+
+source ${HARVESTER_DIR}/scripts/version
+
+
+# copy harvester chart to a temp path for packaging
+deploy_path=${TOP_DIR}/.deploy
+rm -rf $deploy_path
+cp -rf ${HARVESTER_DIR}/deploy $deploy_path
+
+# Replace harvester chart version
+${SCRIPTS_DIR}/patch-harvester $deploy_path
+# Package harvester chart
+harvester_chart_path=${deploy_path}/charts/harvester
+harvester_crd_chart_path=${deploy_path}/charts/harvester-crd
+
+helm package ${harvester_chart_path} -d ${CHARTS_DIR}
+helm package ${harvester_crd_chart_path} -d ${CHARTS_DIR}
+
+# Prepare monitoring chart
+helm pull https://charts.rancher.io/assets/rancher-monitoring-crd/rancher-monitoring-crd-${MONITORING_VERSION}.tgz -d ${CHARTS_DIR}
+helm pull https://charts.rancher.io/assets/rancher-monitoring/rancher-monitoring-${MONITORING_VERSION}.tgz -d ${CHARTS_DIR}
+
+# patch rancher-monitoring chart to fix issues
+PKG_PATCH_MONITORING_PATH="${addons_path}/pkg/config/templates/patch/rancher-monitoring"
+patch_rancher_monitoring_chart ${CHARTS_DIR} ${MONITORING_VERSION} ${PKG_PATCH_MONITORING_PATH}
+
+# patch rancher-monitoring-crd chart to fix issues
+PKG_PATCH_MONITORING_CRD_PATH="${addons_path}/pkg/config/templates/patch/rancher-monitoring-crd"
+patch_rancher_monitoring_crd_chart ${CHARTS_DIR} ${MONITORING_VERSION} ${PKG_PATCH_MONITORING_CRD_PATH}
+
+# make chart sanity check
+tar zxvf ${CHARTS_DIR}/rancher-monitoring-crd-${MONITORING_VERSION}.tgz >/dev/null --warning=no-timestamp
+tar zxvf ${CHARTS_DIR}/rancher-monitoring-${MONITORING_VERSION}.tgz >/dev/null --warning=no-timestamp
+
+# Prepare logging chart
+helm pull https://charts.rancher.io/assets/rancher-logging-crd/rancher-logging-crd-${LOGGING_VERSION}.tgz -d ${CHARTS_DIR}
+helm pull https://charts.rancher.io/assets/rancher-logging/rancher-logging-${LOGGING_VERSION}.tgz -d ${CHARTS_DIR}
+
+# make chart sanity check
+tar zxvf ${CHARTS_DIR}/rancher-logging-crd-${LOGGING_VERSION}.tgz >/dev/null  --warning=no-timestamp
+tar zxvf ${CHARTS_DIR}/rancher-logging-${LOGGING_VERSION}.tgz >/dev/null --warning=no-timestamp
+
+# patch rancher-logging chart to collect more logs"
+PKG_PATCH_LOGGING_PATH="${addons_path}/pkg/config/templates/patch/rancher-logging"
+patch_rancher_logging_chart ${CHARTS_DIR} ${LOGGING_VERSION} ${PKG_PATCH_LOGGING_PATH}
+
+# make chart sanity check again after patch
+tar zxvf ${CHARTS_DIR}/rancher-logging-${LOGGING_VERSION}.tgz >/dev/null --warning=no-timestamp
+
+
+# Prepare vm-import-controller-chart
+echo "pull harvester-vm-import-controller: $VM_IMPORT_CONTROLLER_CHART_VERSION"
+helm pull https://github.com/harvester/charts/releases/download/harvester-vm-import-controller-${VM_IMPORT_CONTROLLER_CHART_VERSION}/harvester-vm-import-controller-${VM_IMPORT_CONTROLLER_CHART_VERSION}.tgz -d ${CHARTS_DIR}
+# make chart sanity check
+tar zxvf ${CHARTS_DIR}/harvester-vm-import-controller-${VM_IMPORT_CONTROLLER_CHART_VERSION}.tgz >/dev/null --warning=no-timestamp
+
+# Prepare pcidevices-chart
+echo "pull harvester-pcidevices-controller: $PCIDEVICES_CONTROLLER_CHART_VERSION"
+helm pull https://github.com/harvester/charts/releases/download/harvester-pcidevices-controller-${PCIDEVICES_CONTROLLER_CHART_VERSION}/harvester-pcidevices-controller-${PCIDEVICES_CONTROLLER_CHART_VERSION}.tgz -d ${CHARTS_DIR}
+# make chart sanity check
+tar zxvf ${CHARTS_DIR}/harvester-pcidevices-controller-${PCIDEVICES_CONTROLLER_CHART_VERSION}.tgz >/dev/null --warning=no-timestamp
+
+# Prepare harvester-seeder-chart
+echo "pull harvester-seeder: $HARVESTER_SEEDER_CHART_VERSION"
+helm pull https://github.com/harvester/charts/releases/download/harvester-seeder-${HARVESTER_SEEDER_CHART_VERSION}/harvester-seeder-${HARVESTER_SEEDER_CHART_VERSION}.tgz -d ${CHARTS_DIR}
+# make chart sanity check
+tar zxvf ${CHARTS_DIR}/harvester-seeder-${HARVESTER_SEEDER_CHART_VERSION}.tgz >/dev/null --warning=no-timestamp
+
+# Prepare nvidia-driver-toolkit chart
+helm pull https://github.com/harvester/charts/releases/download/nvidia-driver-runtime-${NVIDIA_DRIVER_RUNTIME_CHART_VERSION}/nvidia-driver-runtime-${NVIDIA_DRIVER_RUNTIME_CHART_VERSION}.tgz -d ${CHARTS_DIR}
+# make chart sanity check
+tar zxvf ${CHARTS_DIR}/nvidia-driver-runtime-${NVIDIA_DRIVER_RUNTIME_CHART_VERSION}.tgz >/dev/null --warning=no-timestamp
+
+# Prepare kubeovn-operator-crd chart
+helm pull https://github.com/harvester/charts/releases/download/kubeovn-operator-crd-${KUBEOVN_OPERATOR_CHART_VERSION}/kubeovn-operator-crd-${KUBEOVN_OPERATOR_CHART_VERSION}.tgz -d ${CHARTS_DIR}
+# make chart sanity check
+tar zxvf ${CHARTS_DIR}/kubeovn-operator-crd-${KUBEOVN_OPERATOR_CHART_VERSION}.tgz >/dev/null --warning=no-timestamp
+
+# Prepare kubeovn-operator chart
+helm pull https://github.com/harvester/charts/releases/download/kubeovn-operator-${KUBEOVN_OPERATOR_CHART_VERSION}/kubeovn-operator-${KUBEOVN_OPERATOR_CHART_VERSION}.tgz -d ${CHARTS_DIR}
+# make chart sanity check
+tar zxvf ${CHARTS_DIR}/kubeovn-operator-${KUBEOVN_OPERATOR_CHART_VERSION}.tgz >/dev/null --warning=no-timestamp
+
+# Prepare descheduler-chart
+echo "pull descheduler: $DESCHEDULER_CHART_VERSION"
+helm pull https://github.com/kubernetes-sigs/descheduler/releases/download/descheduler-helm-chart-${DESCHEDULER_CHART_VERSION}/descheduler-${DESCHEDULER_CHART_VERSION}.tgz -d ${CHARTS_DIR}
+# make chart sanity check
+tar zxvf ${CHARTS_DIR}/descheduler-${DESCHEDULER_CHART_VERSION}.tgz >/dev/null --warning=no-timestamp
+
+# Create Helm repo index after charts are ready
+helm repo index ${CHARTS_DIR}
+
+# Check the matching of addon chart version and repo chart version
+check_addon_chart_version_matching() {
+  echo "charts packed in Harvester repo"
+  ls -alht ${CHARTS_DIR}
+
+  echo "addon template files"
+  ls -alht ${addons_path}
+
+  for filename in ${addons_path}/*.yaml; do
+    local tmpfile=/tmp/$(basename ${filename})
+    grep -v "{{" ${filename} > ${tmpfile}
+    local cnt=$(yq '.resources | length' ${tmpfile})
+
+    local i=0
+    while [[ $i -lt $cnt ]] ; do
+      local chart=$(idx=$i yq '.resources[env(idx)].spec.chart' ${tmpfile})
+      local version=$(idx=$i yq '.resources[env(idx)].spec.version' ${tmpfile})
+      echo addon: "$chart" version: $version
+      local EXIT_CODE=0
+      local repover=$(chart=$chart yq '.entries[strenv(chart)][0].version' < ${CHARTS_DIR}/index.yaml) || EXIT_CODE=$?
+      if [ $EXIT_CODE != 0 ]; then
+        echo WARNING: addon $chart is defined, but the chart is not packed into repo / repo struct is changed
+        continue
+      fi
+
+      # some charts are not packed into arm64 ISO, the above yq will return `null`
+      if [[ $repover == "null" ]] && [[ ${ARCH} == "arm64" ]]; then
+        echo  WARNING: addon "$chart" is defined with version "$version" but the chart is not packed into repo in ${ARCH}
+      elif [[ $repover != $version ]]; then
+        echo  addon "$chart" has version mis-matching: in repo is "$repover" but in addon is "$version"
+        return 1
+      fi
+      (( i += 1 ))
+    done
+  done
+}
+
+check_addon_chart_version_matching
+
+# Use offline bundle cache
+if [ -n "$HARVESTER_INSTALLER_OFFLINE_BUILD" -a -e /bundle ]; then
+  cp -rf /bundle/* ${BUNDLE_DIR}/
+  exit 0
+fi
+
+# Rancherd bootstrap images
+image_list_file=${RANCHERD_IMAGES_DIR}/rancherd-bootstrap-images-${VERSION}.txt
+cp ${SCRIPTS_DIR}/images/rancherd-bootstrap-images.txt $image_list_file
+RKE2_VERSION_NORMALIZED=${RKE2_VERSION/+/-} # v1.21.3-rc6+rke2r2 -> v1.21.3-rc6-rke2r2
+sed -i "s,\$RKE2_VERSION,${RKE2_VERSION_NORMALIZED}," ${image_list_file}
+save_image "agent" $BUNDLE_DIR ${image_list_file} ${RANCHERD_IMAGES_DIR}
+
+# Rancher images
+image_list_file=${IMAGES_LISTS_DIR}/rancher-images-${RANCHER_VERSION}.txt
+cp ${SCRIPTS_DIR}/images/rancher-images.txt $image_list_file
+save_image "common" $BUNDLE_DIR $image_list_file ${IMAGES_DIR}
+
+# RKE2 images
+RKE2_IMAGES_URL="${RKE2_IMAGE_REPO}${RKE2_VERSION}"
+image_list_file="${IMAGES_LISTS_DIR}/rke2-images.linux-${ARCH}-${RKE2_VERSION_NORMALIZED}.txt"
+image_archive="${IMAGES_DIR}/rke2-images.linux-${ARCH}-${RKE2_VERSION_NORMALIZED}.tar.zst"
+get_url "${RKE2_IMAGES_URL}/rke2-images.linux-${ARCH}.txt" $image_list_file
+get_url "${RKE2_IMAGES_URL}/rke2-images.linux-${ARCH}.tar.zst" $image_archive
+add_image_list_to_metadata "rke2" $BUNDLE_DIR $image_list_file $image_archive
+
+# exclude SR-IOV images
+# use amd64 only image list as we already publish amd images
+image_list_file="${IMAGES_LISTS_DIR}/rke2-images-multus.linux-amd64-${RKE2_VERSION_NORMALIZED}.txt"
+save_image_list "rke2-images-multus" "${RKE2_IMAGES_URL}/rke2-images-multus.linux-amd64.txt" $image_list_file
+
+save_image "rke2" $BUNDLE_DIR $image_list_file ${IMAGES_DIR}
+
+# Harvester images: get image list from harvester chart's values file
+image_list_file="harvester-images-${VERSION}.txt"
+values_file="${harvester_chart_path}/values.yaml"
+touch ${image_list_file}
+repositories=( $(yq eval ' explode(.) | .. | select(has("repository")) |select(has("tag")) | .repository' ${values_file}) )
+tags=( $(yq eval ' explode(.) | .. | select(has("repository")) |select(has("tag")) | .tag' ${values_file}) )
+repositories_length=${#repositories[@]}
+tags_length=${#tags[@]}
+if [ ${repositories_length} -ne ${tags_length} ];then
+  echo "The number of image repositories does not match the number of image tags";
+  exit 1
+fi
+for i in "${!repositories[@]}"; do
+  echo "${repositories[$i]}:${tags[$i]}">>${image_list_file}
+done
+
+add_addon_image() {
+  # $1  ENV name  $2 ENV
+  if [ -z $2 ]; then
+     echo "expected version environment $1 is not set"
+     exit 1
+  else
+    echo $2 >>  ${image_list_file}
+  fi
+}
+
+add_addon_images_to_list() {
+  # those images are defined and imported from: source ${addons_path}/version_info
+  # vm-import-controller image
+  add_addon_image "VM_IMPORT_CONTROLLER_IMAGE" ${VM_IMPORT_CONTROLLER_IMAGE}
+
+  # pcidevices-controller image
+  add_addon_image "PCIDEVICES_CONTROLLER_IMAGE" ${PCIDEVICES_CONTROLLER_IMAGE}
+
+  # seeder image
+  add_addon_image "HARVESTER_SEEDER_IMAGE" ${HARVESTER_SEEDER_IMAGE}
+
+  # harvester eventrouter image
+  add_addon_image "HARVESTER_EVENTROUTER_FULL_TAG" ${HARVESTER_EVENTROUTER_FULL_TAG}
+
+  # kubeovn operator image
+  add_addon_image "KUBEOVN_OPERATOR_IMAGE" ${KUBEOVN_OPERATOR_IMAGE}
+
+  # descheduler image
+  add_addon_image "DESCHEDULER_IMAGE" ${DESCHEDULER_IMAGE}
+}
+
+add_addon_images_to_list
+
+# harvester additional images, which is not in rancher images, not in harvester images or any others
+# do not add any comment line into this file, each line should be an valid image name
+cat ${SCRIPTS_DIR}/images/harvester-additional-images.txt >> ${image_list_file}
+
+# get longhorn image list
+longhorn_version=v$(ls ${harvester_chart_path}/charts | grep longhorn| sed -e "s/^longhorn-//" -e "s/.tgz$//")
+longhorn_image_url=https://raw.githubusercontent.com/longhorn/longhorn/${longhorn_version}/deploy/longhorn-images.txt
+curl ${longhorn_image_url}>>${image_list_file}
+# longhornio/openshift-origin-oauth-proxy does have multi-arch images and Harvester doesn't need it
+# ref: https://github.com/longhorn/longhorn/issues/8329#issuecomment-2046043895
+sed -i '/longhornio\/openshift-origin-oauth-proxy*/d' ${image_list_file}
+
+# format image list
+awk -F ':' '{if($2==""){print $1":latest"}else{print $0}}' "${image_list_file}" | \
+awk -F '/' '{if(NF>=3){print $0} else if(NF==2){print "docker.io/"$0}else if(NF==1){print "docker.io/library/"$0}}' >"${image_list_file}.tmp"
+
+# clean image list
+sort -u "${image_list_file}.tmp" | \
+grep -Ev "local-path-provisioner|library-traefik|klipper-lb|multus" >"${image_list_file}"
+
+cp ${image_list_file} ${IMAGES_LISTS_DIR}
+save_image "common" $BUNDLE_DIR ${IMAGES_LISTS_DIR}/${image_list_file} ${IMAGES_DIR}
+
+# Tag harvester-upgrade:master-head to harvester-upgrade:<version> and save the image to an archive
+# This makes it possible to upgrade a cluster with a master ISO.
+# Also tag harvester-upgrade:master-head to harvester-upgrade:master-<commit>-head and save the image to an archive
+# This makes it possible to upgrade from master builds to master builds
+upgrade_image_repo=$(yq -e e '.upgrade.image.repository' $values_file)
+upgrade_image_tag=$(yq -e e '.upgrade.image.tag' $values_file)
+if [ "$upgrade_image_tag" != "$HARVESTER_VERSION" ]; then
+  docker tag "${upgrade_image_repo}:${upgrade_image_tag}" "rancher/harvester-upgrade:${HARVESTER_VERSION}"
+  docker tag "${upgrade_image_repo}:${upgrade_image_tag}" "rancher/harvester-upgrade:${HARVESTER_APP_VERSION}-head"
+  image_list_file="${IMAGES_LISTS_DIR}/harvester-extra-${VERSION}.txt"
+  image_archive="${IMAGES_DIR}/harvester-extra-${VERSION}.tar"
+  echo "docker.io/rancher/harvester-upgrade:${HARVESTER_VERSION}" > ${image_list_file}
+  echo "docker.io/rancher/harvester-upgrade:${HARVESTER_APP_VERSION}-head" >> ${image_list_file}
+  docker image save -o $image_archive $(<$image_list_file)
+  zstd --rm $image_archive -o "${image_archive}.zst"
+  add_image_list_to_metadata "common" $BUNDLE_DIR $image_list_file "${image_archive}.zst"
+fi
+
+
+sleep 60m
