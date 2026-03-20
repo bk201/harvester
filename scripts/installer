@@ -1,0 +1,6 @@
+#!/bin/bash -e
+
+# ./installer/scripts/check-images
+# ./installer/scripts/build
+# ./installer/scripts/test
+./installer/scripts/build-bundle
