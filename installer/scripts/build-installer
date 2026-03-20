@@ -1,38 +1,20 @@
 #!/bin/bash
 # DESC: Build the harvester-installer binary
-set -e
+set -ex
 
 INSTALLER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
 HARVESTER_DIR="$( cd "${INSTALLER_DIR}/.." &> /dev/null && pwd )"
 HARVESTER_SCRIPT_DIR="${HARVESTER_DIR}/scripts"
 INSTALLER_SCRIPT_DIR="${INSTALLER_DIR}/scripts"
-ADDONS_PATH="${INSTALLER_DIR}/addons"
 
 # --- start loading addon versions ---
-
-# Source addon versions
-if [ ! -d ${ADDONS_PATH} ];then
-    echo "No existing addons source on ${ADDONS_PATH}. Pulling..."
-    git clone --branch main --single-branch --depth 1 https://github.com/harvester/addons.git ${ADDONS_PATH}
-else
-    echo "Addon path ${ADDONS_PATH} is existing, reuse"
-fi
-
-echo "Loading addon version information..."
-source ${ADDONS_PATH}/version_info
-source ${ADDONS_PATH}/scripts/hack/patch-rancher-monitoring
-source ${ADDONS_PATH}/scripts/hack/patch-rancher-logging
-source ${ADDONS_PATH}/scripts/hack/patch-rancher-monitoring-crd
-
-if [[ -z ${RANCHER_LOGGING_CHART_VERSION} ]] || [[ -z ${RANCHER_MONITORING_CHART_VERSION} ]] || [[ -z ${HARVESTER_EVENTROUTER_FULL_TAG} ]]; then
-    echo "Monitoring, logging and eventrouter are not fully defined on ${ADDONS_PATH}/version_info"
-    exit 1
-fi
+source ${INSTALLER_SCRIPT_DIR}/lib/addon
+addons_path=${HARVESTER_DIR}/../addons
+load_and_source_addon ${addons_path} https://github.com/harvester/addons.git main
 
 MONITORING_VERSION=${RANCHER_MONITORING_CHART_VERSION}
 LOGGING_VERSION=${RANCHER_LOGGING_CHART_VERSION}
 echo "HARVESTER_EVENTROUTER_FULL_TAG: $HARVESTER_EVENTROUTER_FULL_TAG"
-
 # --- finish loading addon versions ---
 
 source ${HARVESTER_SCRIPT_DIR}/version
@@ -53,11 +35,6 @@ echo "Rancher monitoring version: ${MONITORING_VERSION}"
 echo "Rancher logging version: ${LOGGING_VERSION}"
 echo "Kubeovn operator version: ${KUBEOVN_OPERATOR_CHART_VERSION}"
 echo "The ARCH is: ${ARCH}"
-
-# Generate addon templates
-echo "Generating addon templates..."
-cd ${ADDONS_PATH}
-GOWORK=off go run . -generateTemplates -path ${INSTALLER_DIR}/pkg/config/templates
 
 # Build the installer binary
 cd ${HARVESTER_DIR}
@@ -83,7 +60,13 @@ if [ "$(uname)" = "Linux" ]; then
     fi
 fi
 
+# render template files
+cd ${addons_path}
+go run . -generateTemplates -path ${INSTALLER_DIR}/pkg/config/templates
+
 echo "Building harvester-installer binary..."
-CGO_ENABLED=0 go build -gcflags "${OTHER_COMPILERFLAGS}" -ldflags "$LINKFLAGS $OTHER_LINKFLAGS" -o bin/harvester-installer ./cmd/installer
+cd ${HARVESTER_DIR}
+
+CGO_ENABLED=0 go build -gcflags "${OTHER_COMPILERFLAGS}" -ldflags "$LINKFLAGS $OTHER_LINKFLAGS" -o bin/harvester-installer ./installer
 
 echo "Build complete: bin/harvester-installer"
