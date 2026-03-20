@@ -1,4 +1,4 @@
 #!/bin/bash
 set -e
 
-./installer/scripts/build-installer
+./installer/scripts/build

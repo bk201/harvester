@@ -1,5 +1,4 @@
 #!/bin/bash
-# DESC: Build the harvester-installer binary
 set -ex
 
 INSTALLER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
