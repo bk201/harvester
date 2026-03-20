@@ -1,8 +1,8 @@
 #!/bin/bash
 # DESC: Generates versioning metadata for a build system. It calculates VERSION, TAG and CHART_VERSION based on a Git state.
 
-TOP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
-PACKAGE_DIR="${TOP_DIR}/package"
+_VERSION_TOP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
+PACKAGE_DIR="${_VERSION_TOP_DIR}/package"
 
 unset DIRTY
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
