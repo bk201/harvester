@@ -5,6 +5,7 @@ INSTALLER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )
 HARVESTER_DIR="$( cd "${INSTALLER_DIR}/.." &> /dev/null && pwd )"
 HARVESTER_SCRIPT_DIR="${HARVESTER_DIR}/scripts"
 INSTALLER_SCRIPT_DIR="${INSTALLER_DIR}/scripts"
+PACKAGE_HARVESTER_OS_DIR="${INSTALLER_DIR}/package/harvester-os"
 
 # --- start loading addon versions ---
 source ${INSTALLER_SCRIPT_DIR}/lib/addon
@@ -69,3 +70,6 @@ cd ${HARVESTER_DIR}
 CGO_ENABLED=0 go build -gcflags "${OTHER_COMPILERFLAGS}" -ldflags "$LINKFLAGS $OTHER_LINKFLAGS" -o bin/harvester-installer ./installer
 
 echo "Build complete: bin/harvester-installer"
+
+mkdir -p ${PACKAGE_HARVESTER_OS_DIR}/files/usr/bin
+install bin/harvester-installer ${PACKAGE_HARVESTER_OS_DIR}/files/usr/bin/
