@@ -39,6 +39,8 @@ mkdir -p ${IMAGES_LISTS_DIR}
 mkdir -p ${RANCHERD_IMAGES_DIR}
 
 source ${HARVESTER_DIR}/scripts/version
+HARVESTER_VERSION=${VERSION}
+HARVESTER_APP_VERSION=${APP_VERSION}
 
 
 # copy harvester chart to a temp path for packaging
