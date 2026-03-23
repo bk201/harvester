@@ -1,6 +1,8 @@
 #!/bin/bash -e
 
 # ./installer/scripts/check-images
-# ./installer/scripts/build
+./installer/scripts/build
 # ./installer/scripts/test
 ./installer/scripts/build-bundle
+./installer/scripts/package-harvester-repo
+./installer/scripts/package-harvester-os

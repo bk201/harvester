@@ -292,6 +292,3 @@ if [ "$upgrade_image_tag" != "$HARVESTER_VERSION" ]; then
   zstd --rm $image_archive -o "${image_archive}.zst"
   add_image_list_to_metadata "common" $BUNDLE_DIR $image_list_file "${image_archive}.zst"
 fi
-
-
-sleep 60m
