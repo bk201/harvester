@@ -5,7 +5,6 @@ HARVESTER_DIR="$( cd "${TOP_DIR}/.." &> /dev/null && pwd )"
 
 cd "${1}" || exit
 source ${HARVESTER_DIR}/scripts/version
-IMAGE_PUSH_TAG=master-head
 
 replace_image_repo()
 {

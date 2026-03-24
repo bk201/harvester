@@ -42,6 +42,22 @@ source ${HARVESTER_DIR}/scripts/version
 HARVESTER_VERSION=${VERSION}
 HARVESTER_APP_VERSION=${APP_VERSION}
 
+# Normalize Docker image names to include full registry path
+# Args: $1 - input file path
+# Adds docker.io prefix to 2-component names and docker.io/library to 1-component names
+normalize_image_names() {
+  local input_file="$1"
+  awk -F '/' '{
+    if(NF>=3) {
+      print $0
+    } else if(NF==2) {
+      print "docker.io/"$0
+    } else if(NF==1) {
+      print "docker.io/library/"$0
+    }
+  }' "${input_file}" > "${input_file}.tmp"
+  mv "${input_file}.tmp" "${input_file}"
+}
 
 # copy harvester chart to a temp path for packaging
 deploy_path=${TOP_DIR}/.deploy
@@ -264,16 +280,60 @@ curl ${longhorn_image_url}>>${image_list_file}
 # ref: https://github.com/longhorn/longhorn/issues/8329#issuecomment-2046043895
 sed -i '/longhornio\/openshift-origin-oauth-proxy*/d' ${image_list_file}
 
-# format image list
-awk -F ':' '{if($2==""){print $1":latest"}else{print $0}}' "${image_list_file}" | \
-awk -F '/' '{if(NF>=3){print $0} else if(NF==2){print "docker.io/"$0}else if(NF==1){print "docker.io/library/"$0}}' >"${image_list_file}.tmp"
+# format image list - add :latest tag if missing, then normalize registry names
+awk -F ':' '{if($2==""){print $1":latest"}else{print $0}}' "${image_list_file}" > "${image_list_file}.tmp"
+mv "${image_list_file}.tmp" "${image_list_file}"
+normalize_image_names "${image_list_file}"
 
 # clean image list
-sort -u "${image_list_file}.tmp" | \
-grep -Ev "local-path-provisioner|library-traefik|klipper-lb|multus" >"${image_list_file}"
+sort -u "${image_list_file}" | \
+grep -Ev "local-path-provisioner|library-traefik|klipper-lb|multus" > "${image_list_file}.tmp"
+mv "${image_list_file}.tmp" "${image_list_file}"
+
+
+package_local_images=true
+if [ "${HARVESTER_CI:-}" = "true" ]; then
+  package_local_images=false
+fi
+
+if [ "${package_local_images}" = "true" ]; then
+  # Remove harvester, harvester-webhook, harvester-upgrade images as they are built and tagged in the
+  # build process. We'll get them from the current docker daemon later.
+  sed -i "/$REPO\/harvester\(:.*\)*$/d" ${image_list_file}
+  sed -i "/$REPO\/harvester-webhook\(:.*\)*$/d" ${image_list_file}
+  sed -i "/$REPO\/harvester-upgrade\(:.*\)*$/d" ${image_list_file}
+fi
 
 cp ${image_list_file} ${IMAGES_LISTS_DIR}
 save_image "common" $BUNDLE_DIR ${IMAGES_LISTS_DIR}/${image_list_file} ${IMAGES_DIR}
+
+if [ "${package_local_images}" = "true" ]; then
+  # Package locally built harvester images for development/CI builds
+  local_image_list="harvester-local-images-${HARVESTER_VERSION}.txt"
+
+  # Create list of harvester component images with current build tag
+  cat > "${local_image_list}" <<EOF
+$REPO/harvester:${IMAGE_PUSH_TAG}
+$REPO/harvester-webhook:${IMAGE_PUSH_TAG}
+$REPO/harvester-upgrade:${IMAGE_PUSH_TAG}
+EOF
+
+  # Normalize image names to include full registry paths
+  normalize_image_names "${local_image_list}"
+
+  # Copy to images list directory and prepare archive
+  cp "${local_image_list}" "${IMAGES_LISTS_DIR}/"
+  image_list_file="${IMAGES_LISTS_DIR}/${local_image_list}"
+  image_archive="${IMAGES_DIR}/harvester-local-images-${HARVESTER_VERSION}.tar"
+
+  # Save images from local Docker daemon and compress
+  docker image save -o "${image_archive}" $(<"${image_list_file}")
+  zstd --rm "${image_archive}" -o "${image_archive}.zst"
+
+  # Register in bundle metadata
+  add_image_list_to_metadata "common" $BUNDLE_DIR $image_list_file "${image_archive}.zst"
+fi
+
 
 # Tag harvester-upgrade:master-head to harvester-upgrade:<version> and save the image to an archive
 # This makes it possible to upgrade a cluster with a master ISO.
