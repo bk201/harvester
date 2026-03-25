@@ -1,0 +1,26 @@
+FROM harvester-builder:local
+
+ARG CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
+WORKDIR ${CONTAINER_WORKDIR}
+
+# Vendor and module files change rarely — keep as early cached layers
+COPY vendor/ vendor/
+COPY go.mod go.sum go.work go.work.sum ./
+COPY installer/go.mod installer/go.sum installer/
+
+# Source code
+COPY main.go ./
+COPY pkg/ pkg/
+COPY cmd/ cmd/
+
+# Version variables file
+COPY harvester-env.sh ./
+
+# Build script (will source harvester-env.sh)
+COPY mk/build-harvester mk/build-harvester
+
+ENV GOFLAGS=-buildvcs=false
+
+RUN --mount=type=cache,target=/go/pkg/mod,id=harvester-go-mod \
+    --mount=type=cache,target=${CONTAINER_WORKDIR}/.cache/go-build,id=harvester-go-build \
+    bash mk/build-harvester

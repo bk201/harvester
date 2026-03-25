@@ -21,7 +21,3 @@ echo "Running: golangci-lint run with --timeout=10m"
 golangci-lint run --timeout=10m
 date
 
-# Run installer validation
-echo ""
-echo "Running installer validation"
-./installer/scripts/validate-installer

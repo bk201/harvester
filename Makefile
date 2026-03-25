@@ -1,29 +1,75 @@
-TARGETS := $(shell ls --ignore=help --ignore='*.txt' scripts)
+ROOT              := $(realpath $(dir $(realpath $(firstword $(MAKEFILE_LIST)))))
+MK_DIR            := $(ROOT)/mk
+BUILDER_IMAGE          := harvester-builder:local
+BIN_IMAGE              := harvester-bin:local
+INSTALLER_BIN_IMAGE    := harvester-installer-bin:local
+ADDONS_IMAGE           := harvester-addons:local
+CONTAINER_WORKDIR := /go/src/github.com/harvester/harvester
+ENV_FILE          := $(ROOT)/harvester-env.sh
+HOST_ARCH         := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
+DOCKER_PROGRESS   ?= auto
 
-SHA512SUM_Linux_aarch64 := 781951b31e5ff018a04e755c6da7163b31a81edda61f1bed4def8d0e24229865c58a3d26aa0cc4184058d91ebcae300ead2cad16d3c46ccb1098419e3e41a016
-SHA512SUM_Linux_x86_64 := d2ec27ecf9362e2fafd27d76d85a5c5b92b53aefe07cffa76bf9887db6bee07b1023cca8fc32a2c9bdd2ecfadaee71397066b41bd37c9ebbbbce09913f0884d4
-SHA512SUM_Darwin_arm64 := 8a356c89ad32af1698ae8615a6e303773a8ac58b114368454d59965ec2aa8282e780d1e228d37c301ce6f87596f68bfe7f204eb5f4c019c386a58dd94153ddcf
-SHA512SUM_Darwin_x86_64 := dbab05de04dda26793f4ae7875d0fba96ee54b0228e192fd40c0b2116ed345b5444047fc2e0c90cb481f28cbe0e0452bcecb268c8d074cd8615eb2f5463c30b6
-SHA512SUM_Windows_x86_64 := 807aee2f68b6da35cb0885558f5cbc9a6c8747a56c7a200f0e1fcac9e2fd0da570cbb39e48b3192bd1a71805f2ab38fd19d77faebba97a89e5d9a8b430ee429e
+.PHONY: pull-addons harvester-binaries build build-installer package package-harvester package-harvester-webhook package-harvester-upgrade clean $(ENV_FILE)
 
-help:
-	@./scripts/help "$(MAKEFILE_LIST)" $(TARGETS)
+# ---- Directories ----
+$(ROOT)/bin:
+	@mkdir -p $@
 
-.dapper:
-	@echo Downloading dapper
-	@curl -sSfL https://releases.rancher.com/dapper/v0.6.0/dapper-$$(uname -s)-$$(uname -m) > .dapper.tmp
-	@CHECKSUM=$$(shasum -a 512 .dapper.tmp | awk '{print $$1}'); \
-	if [ "$$CHECKSUM" != "$(SHA512SUM_$(shell uname -s)_$(shell uname -m))" ]; then \
-		echo "Checksum verification failed!"; \
-		exit 1; \
-	fi
-	@@chmod +x .dapper.tmp
-	@./.dapper.tmp -v
-	@mv .dapper.tmp .dapper
+# ---- Version (regenerate when git state changes) ----
+$(ENV_FILE):
+	bash $(ROOT)/mk/version-generate $(ROOT)
 
-$(TARGETS): .dapper
-	./.dapper $@
+# ---- Builder image ----
+$(MK_DIR)/.builder.stamp: $(ROOT)/mk/Dockerfile.builder
+	docker build \
+	    --build-arg CONTAINER_WORKDIR=$(CONTAINER_WORKDIR) \
+	    --build-arg DAPPER_HOST_ARCH=$(HOST_ARCH) \
+	    -f $(ROOT)/mk/Dockerfile.builder \
+	    -t $(BUILDER_IMAGE) \
+	    $(MK_DIR)
+	@touch $@
 
-.DEFAULT_GOAL := default
+# ---- Pull addons into local Docker image ----
+pull-addons:
+	@bash $(MK_DIR)/pull-addons $(MK_DIR) $(ADDONS_IMAGE) $(DOCKER_PROGRESS)
 
-.PHONY: $(TARGETS)
+# ---- Compile harvester binaries ----
+harvester-binaries: $(MK_DIR)/.builder.stamp $(ENV_FILE) \
+    $(shell find $(ROOT)/pkg $(ROOT)/cmd -name '*.go') $(ROOT)/main.go $(ROOT)/go.mod $(ROOT)/go.sum \
+    $(MK_DIR)/build-harvester | $(ROOT)/bin
+	@bash $(MK_DIR)/docker-build-harvester $(MK_DIR) $(ROOT) $(BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+
+# ---- Build ----
+build: harvester-binaries
+
+# ---- Compile harvester-installer binary ----
+$(ROOT)/bin/harvester-installer: $(MK_DIR)/.builder.stamp $(ENV_FILE) pull-addons \
+    $(shell find $(ROOT)/installer -name '*.go') $(ROOT)/go.mod $(ROOT)/go.sum \
+    $(ROOT)/installer/scripts/build | $(ROOT)/bin
+	@bash $(MK_DIR)/docker-build-installer $(MK_DIR) $(ROOT) $(INSTALLER_BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+
+build-installer: $(ROOT)/bin/harvester-installer
+
+# ---- Package all images ----
+package: package-harvester package-harvester-webhook package-harvester-upgrade
+
+# ---- Package harvester image ----
+package-harvester: harvester-binaries $(ENV_FILE)
+	@bash $(MK_DIR)/package-harvester $(ENV_FILE) $(ROOT) $(DOCKER_PROGRESS)
+
+# ---- Package harvester-webhook image ----
+package-harvester-webhook: harvester-binaries $(ENV_FILE)
+	@bash $(MK_DIR)/package-harvester-webhook $(ENV_FILE) $(ROOT) $(DOCKER_PROGRESS)
+
+# ---- Package harvester-upgrade image ----
+package-harvester-upgrade: harvester-binaries $(ENV_FILE)
+	@bash $(MK_DIR)/package-harvester-upgrade $(ENV_FILE) $(ROOT) $(DOCKER_PROGRESS)
+
+# ---- Clean ----
+clean:
+	rm -rf $(ROOT)/bin
+	rm -f $(ROOT)/package/harvester $(ROOT)/package/harvester-webhook $(ROOT)/harvester-env.sh
+	rm -f $(ROOT)/package/upgrade/upgrade-helper
+	rm -f $(MK_DIR)/.builder.stamp
+
+.DEFAULT_GOAL := package-harvester

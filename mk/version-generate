@@ -1,0 +1,100 @@
+#!/bin/bash
+# DESC: Generate version metadata file from git state
+# USAGE: version-generate <output-directory>
+set -e
+
+if [ $# -ne 1 ]; then
+    echo "Usage: $0 <output-directory>" >&2
+    exit 1
+fi
+
+OUTPUT_DIR="$1"
+OUTPUT_FILE="${OUTPUT_DIR}/versions.env"
+
+# Calculate version metadata (from scripts/version)
+TOP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
+PACKAGE_DIR="${TOP_DIR}/package"
+
+unset DIRTY
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    DIRTY="-dirty"
+fi
+
+COMMIT=$(git rev-parse --short=8 HEAD)
+COMMIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+COMMIT_TAG=$(git tag --points-at HEAD 2>/dev/null | head -n 1 || echo "")
+COMMIT_BRANCH_FORMATTED=$(echo "${COMMIT_BRANCH}" | sed -E 's/[^a-zA-Z0-9.]+/-/g')
+GIT_TAG=$(git tag -l --contains HEAD | head -n 1)
+if [[ "$GIT_TAG" == *"-dev-"* ]]; then
+  SPRINT_RELEASE="-dev-"
+fi
+
+if [[ -z "$DIRTY" && -n "$GIT_TAG" && -z "$SPRINT_RELEASE" ]]; then
+    echo "Checking minimum upgradable version, if no minimum upgradeable version, will fail with \`Error: no matches found\`"
+    VERSION=$GIT_TAG
+    # Search for minimum upgradable version.
+    # If the release does not come with a corresponding minimum upgradable version, the build will error out.
+    MIN_UPGRADABLE_VERSION=$(yq -e e ".versions | map(select(.name == \"$VERSION\")) | .[0].minUpgradableVersion" "${PACKAGE_DIR}"/upgrade-matrix.yaml)
+else
+    VERSION="${COMMIT}${DIRTY}"
+    # Dev builds do not come with this restriction.
+    MIN_UPGRADABLE_VERSION=""
+fi
+
+# Chart tag.
+if [[ -z "$DIRTY" && -n "$GIT_TAG" ]]; then
+    IMAGE_PUSH_TAG="${GIT_TAG}"
+    APP_VERSION="${GIT_TAG}"
+    CHART_VERSION="${GIT_TAG}"
+else
+    IMAGE_PUSH_TAG="${COMMIT_BRANCH_FORMATTED}-head"
+    APP_VERSION="${COMMIT_BRANCH}-${COMMIT}${DIRTY}"
+    CHART_VERSION="v0.0.0-${COMMIT_BRANCH_FORMATTED}-${COMMIT}${DIRTY}"
+fi
+
+# Drop the v prefix for Chart Version to follow existing pattern.
+CHART_VERSION="$(echo ${CHART_VERSION} | sed -E 's/^v//')"
+
+# The length of metadata.label is no more than 63 characters.
+# We limit the CHART_VERSION less than or equal to 50 characters and it would be safe.
+CHART_VERSION_LEN=${#CHART_VERSION}
+if [ "$CHART_VERSION_LEN" -gt "50" ]; then
+    echo "Please reduce the length of CHART_VERSION, it should less than or equal to 50 characters."
+    echo "Current CHART_VERSION(${CHART_VERSION_LEN}): ${CHART_VERSION}"
+    exit 1
+fi
+
+if [ -z "$ARCH" ]; then
+    ARCH=$(go env GOHOSTARCH)
+fi
+
+SUFFIX="-${ARCH}"
+
+TAG=${TAG:-${VERSION}${SUFFIX}}
+REPO=${REPO:-rancher}
+
+if echo $TAG | grep -q dirty; then
+    TAG=dev
+fi
+
+# Write version metadata to file with HARVESTER_ prefix to avoid collisions
+cat > "${OUTPUT_FILE}" <<EOF
+readonly HARVESTER_VERSION=${VERSION}
+readonly HARVESTER_TAG=${TAG}
+readonly HARVESTER_IMAGE_PUSH_TAG=${IMAGE_PUSH_TAG}
+readonly HARVESTER_CHART_VERSION=${CHART_VERSION}
+readonly HARVESTER_APP_VERSION=${APP_VERSION}
+readonly HARVESTER_ARCH=${ARCH}
+readonly HARVESTER_SUFFIX=${SUFFIX}
+readonly HARVESTER_REPO=${REPO}
+readonly HARVESTER_COMMIT=${COMMIT}
+readonly HARVESTER_COMMIT_BRANCH=${COMMIT_BRANCH}
+readonly HARVESTER_COMMIT_TAG=${COMMIT_TAG}
+readonly HARVESTER_MIN_UPGRADABLE_VERSION=${MIN_UPGRADABLE_VERSION}
+EOF
+
+# Also write to harvester-env.sh (same content as versions.env, for sourcing in build scripts)
+cp "${OUTPUT_FILE}" "${TOP_DIR}/harvester-env.sh"
+
+# Display the generated file
+cat "${OUTPUT_FILE}"

@@ -1,9 +1,8 @@
 #!/bin/bash
-set -e
+set -ex
 
 INSTALLER_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
 HARVESTER_DIR="$( cd "${INSTALLER_DIR}/.." &> /dev/null && pwd )"
-HARVESTER_SCRIPT_DIR="${HARVESTER_DIR}/scripts"
 INSTALLER_SCRIPT_DIR="${INSTALLER_DIR}/scripts"
 PACKAGE_HARVESTER_OS_DIR="${INSTALLER_DIR}/package/harvester-os"
 
@@ -17,19 +16,20 @@ LOGGING_VERSION=${RANCHER_LOGGING_CHART_VERSION}
 echo "HARVESTER_EVENTROUTER_FULL_TAG: $HARVESTER_EVENTROUTER_FULL_TAG"
 # --- finish loading addon versions ---
 
-source ${HARVESTER_SCRIPT_DIR}/version
-
 source ${INSTALLER_SCRIPT_DIR}/version-rke2
 source ${INSTALLER_SCRIPT_DIR}/version-rancher
 
-INSTALLER_VERSION=${VERSION}
-HARVESTER_VERSION=${VERSION}
-HARVESTER_CHART_VERSION=${CHART_VERSION}
+# Source version variables (from repo root)
+. ${HARVESTER_DIR}/harvester-env.sh
+
+version=${HARVESTER_VERSION}
+commit=${HARVESTER_COMMIT}
+chart_version=${HARVESTER_CHART_VERSION}
 
 echo "=============================="
-echo "Installer version: ${INSTALLER_VERSION}"
-echo "Harvester version: ${HARVESTER_VERSION}"
-echo "Harvester chart version: ${HARVESTER_CHART_VERSION}"
+echo "Installer version: ${version}"
+echo "Harvester version: ${version}"
+echo "Harvester chart version: ${chart_version}"
 echo "Rancher version: ${RANCHER_VERSION}"
 echo "Rancher monitoring version: ${MONITORING_VERSION}"
 echo "Rancher logging version: ${LOGGING_VERSION}"
@@ -42,10 +42,10 @@ mkdir -p bin
 
 LINKFLAGS="-X github.com/harvester/harvester-installer/pkg/config.RKE2Version=$RKE2_VERSION
            -X github.com/harvester/harvester-installer/pkg/config.RancherVersion=$RANCHER_VERSION
-           -X github.com/harvester/harvester-installer/pkg/version.Version=$INSTALLER_VERSION
-           -X github.com/harvester/harvester-installer/pkg/version.GitCommit=$COMMIT
-           -X github.com/harvester/harvester-installer/pkg/version.HarvesterVersion=$HARVESTER_VERSION
-           -X github.com/harvester/harvester-installer/pkg/config.HarvesterChartVersion=$HARVESTER_CHART_VERSION
+           -X github.com/harvester/harvester-installer/pkg/version.Version=$version
+           -X github.com/harvester/harvester-installer/pkg/version.GitCommit=$commit
+           -X github.com/harvester/harvester-installer/pkg/version.HarvesterVersion=$version
+           -X github.com/harvester/harvester-installer/pkg/config.HarvesterChartVersion=$chart_version
            -X github.com/harvester/harvester-installer/pkg/config.MonitoringChartVersion=$MONITORING_VERSION
            -X github.com/harvester/harvester-installer/pkg/config.LoggingChartVersion=$LOGGING_VERSION
            -X github.com/harvester/harvester-installer/pkg/config.KubeovnOperatorChartVersion=$KUBEOVN_OPERATOR_CHART_VERSION

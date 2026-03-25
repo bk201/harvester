@@ -1,0 +1,82 @@
+FROM quay.io/costoolkit/releases-teal:grub2-live-0.0.4-2 AS grub2-mbr
+FROM quay.io/costoolkit/releases-teal:grub2-efi-image-live-0.0.4-2 AS grub2-efi
+
+FROM golang:1.25.7-bookworm
+
+ARG CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
+
+ARG DAPPER_HOST_ARCH
+ENV ARCH=$DAPPER_HOST_ARCH
+ENV GOTOOLCHAIN=auto
+
+RUN apt-get update -qq && apt-get install -y --no-install-recommends \
+    xz-utils \
+    unzip \
+    zstd \
+    squashfs-tools \
+    xorriso \
+    jq \
+    mtools \
+    dosfstools \
+    patch \
+    time \
+    && rm -rf /var/lib/apt/lists/*
+
+# install yq
+RUN GO111MODULE=on go install github.com/mikefarah/yq/v4@v4.27.5
+# set up helm
+ENV HELM_VERSION=v3.5.4
+ENV HELM_URL=https://get.helm.sh/helm-${HELM_VERSION}-linux-${ARCH}.tar.gz
+RUN mkdir /usr/tmp && \
+    curl ${HELM_URL} | tar xvzf - --strip-components=1 -C /usr/tmp/ && \
+    mv /usr/tmp/helm /usr/bin/helm
+
+# -- for make rules
+## install docker client
+RUN apt-get update -qq && apt-get install -y --no-install-recommends \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    rsync \
+    && rm -rf /var/lib/apt/lists/*; \
+    \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - >/dev/null; \
+    echo "deb [arch=$(dpkg --print-architecture)] https://download.docker.com/linux/debian buster stable" > /etc/apt/sources.list.d/docker.list; \
+    \
+    apt-get update -qq && apt-get install -y --no-install-recommends \
+    docker-ce=5:20.10.* \
+    && rm -rf /var/lib/apt/lists/*
+## install golangci
+RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.8.0
+
+## install controller-gen
+RUN GO111MODULE=on go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.17.1
+## install ginkgo
+RUN GO111MODULE=on go install github.com/onsi/ginkgo/v2/ginkgo@v2.23.4
+
+# install openapi-gen
+RUN  GO111MODULE=on go install k8s.io/code-generator/cmd/openapi-gen@v0.29.13
+
+# install kind
+RUN curl -Lo /usr/bin/kind https://kind.sigs.k8s.io/dl/v0.30.0/kind-linux-amd64 && chmod +x /usr/bin/kind
+
+# install codecov
+RUN curl -Lo /usr/bin/codecov https://uploader.codecov.io/latest/linux/codecov && chmod +x /usr/bin/codecov
+
+# copy bootloaders
+RUN mkdir /grub2-mbr
+COPY --from=grub2-mbr / /grub2-mbr
+RUN mkdir /grub2-efi
+COPY --from=grub2-efi / /grub2-efi
+
+# -- for make rules
+
+# -- for dapper
+ENV DAPPER_ENV="REPO TAG DRONE_TAG DRONE_BRANCH CROSS GOPROXY PUSH RKE2_IMAGE_REPO USE_LOCAL_IMAGES CODECOV_TOKEN HARVESTER_UI_VERSION HARVESTER_UI_PLUGIN_BUNDLED_VERSION HARVESTER_ADDONS_VERSION HARVESTER_CI"
+# ENV DAPPER_SOURCE=/go/src/github.com/harvester/harvester/
+# ENV HOME=${DAPPER_SOURCE}
+# -- for dapper
+
+
+ENV HOME=${CONTAINER_WORKDIR}

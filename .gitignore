@@ -15,3 +15,10 @@ package/upgrade/upgrade-helper
 package/upgrade/addons
 
 installer/.deploy
+
+/harvester-env.sh
+mk/.builder.stamp
+mk/.addons.stamp
+
+
+/kf

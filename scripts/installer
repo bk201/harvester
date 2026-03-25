@@ -1,8 +1,10 @@
 #!/bin/bash -e
 
+cd $(dirname $0)/..
+
 # ./installer/scripts/check-images
-./installer/scripts/build
+# ./installer/scripts/build
 # ./installer/scripts/test
 ./installer/scripts/build-bundle
-./installer/scripts/package-harvester-repo
-./installer/scripts/package-harvester-os
+# ./installer/scripts/package-harvester-repo
+# ./installer/scripts/package-harvester-os

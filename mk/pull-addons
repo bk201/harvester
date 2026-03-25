@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+# Arguments passed from Makefile
+MK_DIR="$1"
+ADDONS_IMAGE="$2"
+DOCKER_PROGRESS="${3:-auto}"
+
+echo "Pulling addons into image $ADDONS_IMAGE..."
+
+docker build \
+    --no-cache \
+    --progress="$DOCKER_PROGRESS" \
+    -f "$MK_DIR/Dockerfile.addons" \
+    -t "$ADDONS_IMAGE" \
+    "$MK_DIR"
+
+echo "Addons image ready: $ADDONS_IMAGE"

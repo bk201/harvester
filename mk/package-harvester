@@ -1,0 +1,35 @@
+#!/bin/bash
+set -e
+
+# Arguments passed from Makefile
+ENV_FILE="$1"
+ROOT="$2"
+DOCKER_PROGRESS="${3:-auto}"
+
+# Source version variables
+. "$ENV_FILE"
+
+echo "Packaging harvester image..."
+echo "  Version: $HARVESTER_VERSION"
+echo "  Tag: $HARVESTER_REPO/harvester:$HARVESTER_TAG"
+echo "  Push tag: $HARVESTER_REPO/harvester:$HARVESTER_IMAGE_PUSH_TAG"
+
+# Copy binary to package directory
+echo "Copying binary to package directory..."
+cp "$ROOT/bin/harvester" "$ROOT/package/harvester"
+
+# Build final image from package/Dockerfile
+echo "Building final image from package/Dockerfile..."
+docker build \
+    --progress="$DOCKER_PROGRESS" \
+    -f "$ROOT/package/Dockerfile" \
+    -t "$HARVESTER_REPO/harvester:$HARVESTER_TAG" \
+    "$ROOT/package/"
+
+# Tag with additional tag
+echo "Tagging image..."
+docker tag \
+    "$HARVESTER_REPO/harvester:$HARVESTER_TAG" \
+    "$HARVESTER_REPO/harvester:$HARVESTER_IMAGE_PUSH_TAG"
+
+echo "Package complete: $HARVESTER_REPO/harvester:$HARVESTER_TAG"
