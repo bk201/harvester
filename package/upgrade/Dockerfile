@@ -1,8 +1,15 @@
 ARG HARVESTER_INSTALLER_REF=master-head
+ARG BIN_IMAGE=harvester-bin:local
+ARG INSTALLER_BIN_IMAGE=harvester-installer-bin:local
+ARG CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
+
 FROM registry.opensuse.org/isv/rancher/harvester/os/dev/main/baseos:latest as baseos
+FROM ${BIN_IMAGE} as harvester-binaries
+FROM ${INSTALLER_BIN_IMAGE} as installer-binary
 FROM registry.suse.com/bci/bci-base:16.0
 
 ARG ARCH=amd64
+ARG CONTAINER_WORKDIR
 ENV ARCH=${ARCH}
 
 ARG KUBECTL_VERSION=v1.33.7
@@ -45,8 +52,10 @@ RUN KUBECTL_SHA256=KUBECTL_SHA256_${ARCH} && \
     chmod +x /usr/bin/wharfie
 # Copy elemental binary to be used for upgrades
 COPY --from=baseos /usr/bin/elemental /usr/local/bin/elemental
-# Copy harvester-installer binary to be used to generate networkmanager config
-COPY harvester-installer /usr/local/bin/harvester-installer
+# Copy binaries from build images
+COPY --from=installer-binary ${CONTAINER_WORKDIR}/bin/harvester-installer /usr/local/bin/harvester-installer
+COPY --from=harvester-binaries ${CONTAINER_WORKDIR}/bin/upgrade-helper /usr/local/bin/upgrade-helper
+# Copy scripts and resources from build context
 COPY do_upgrade_node.sh /usr/local/bin/
 COPY upgrade_node.sh /usr/local/bin/
 COPY upgrade_manifests.sh /usr/local/bin/
@@ -54,4 +63,3 @@ COPY lib.sh /usr/local/bin
 COPY extra_manifests /usr/local/share/extra_manifests
 COPY migrations /usr/local/share/migrations
 COPY addons /usr/local/share/addons
-COPY upgrade-helper /usr/local/bin/

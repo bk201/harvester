@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+# Arguments from Makefile
+MK_DIR="$1"
+ROOT="$2"
+BUNDLE_IMAGE="$3"
+ENV_FILE="$4"
+CONTAINER_WORKDIR="$5"
+DOCKER_PROGRESS="${6:-auto}"
+
+# Source version variables for display
+source "$ENV_FILE"
+
+echo "Building offline bundle for Harvester ${HARVESTER_VERSION}..."
+
+# Build the bundle inside Docker image
+# Note: harvester-env.sh is copied into image and sourced by build-bundle script
+docker build \
+    --progress="$DOCKER_PROGRESS" \
+    --build-arg CONTAINER_WORKDIR="${CONTAINER_WORKDIR}" \
+    -f "$MK_DIR/Dockerfile.bundle" \
+    -t "$BUNDLE_IMAGE" \
+    "$ROOT"
+
+echo "Bundle image created: $BUNDLE_IMAGE"
+echo "  Bundle path (in image): ${CONTAINER_WORKDIR}/installer/package/harvester-os/iso/bundle/"
+echo "  Charts path (in image): ${CONTAINER_WORKDIR}/installer/package/harvester-repo/charts/"

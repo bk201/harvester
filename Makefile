@@ -4,12 +4,14 @@ BUILDER_IMAGE          := harvester-builder:local
 BIN_IMAGE              := harvester-bin:local
 INSTALLER_BIN_IMAGE    := harvester-installer-bin:local
 ADDONS_IMAGE           := harvester-addons:local
+BUNDLE_BUILDER_IMAGE   := harvester-bundle-builder:local
+BUNDLE_IMAGE           := harvester-bundle:local
 CONTAINER_WORKDIR := /go/src/github.com/harvester/harvester
 ENV_FILE          := $(ROOT)/harvester-env.sh
 HOST_ARCH         := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 DOCKER_PROGRESS   ?= plain
 
-.PHONY: builder-image pull-addons harvester-binaries build build-installer package package-harvester package-harvester-webhook package-harvester-upgrade clean
+.PHONY: builder-image pull-addons harvester-binaries build build-installer bundle-builder-image build-bundle package package-harvester package-harvester-webhook package-harvester-upgrade clean
 
 # ---- Directories ----
 $(ROOT)/bin:
@@ -48,6 +50,20 @@ build-installer: builder-image $(ENV_FILE) pull-addons | $(ROOT)/bin
 	@echo "===> Building harvester-installer binary"
 	@bash $(MK_DIR)/docker-build-installer $(MK_DIR) $(ROOT) $(INSTALLER_BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
 
+# ---- Bundle builder image (extends harvester-builder with addons) ----
+bundle-builder-image: builder-image pull-addons
+	@echo "===> Building bundle builder image"
+	@docker build \
+	    --progress=$(DOCKER_PROGRESS) \
+	    -f $(MK_DIR)/Dockerfile.bundle-builder \
+	    -t $(BUNDLE_BUILDER_IMAGE) \
+	    $(MK_DIR)
+
+# ---- Build offline bundle (charts + images) ----
+build-bundle: bundle-builder-image package $(ENV_FILE)
+	@echo "===> Building offline bundle (requires network access)"
+	@bash $(MK_DIR)/docker-build-bundle $(MK_DIR) $(ROOT) $(BUNDLE_IMAGE) $(ENV_FILE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+
 # ---- Package all images ----
 package: package-harvester package-harvester-webhook package-harvester-upgrade
 
@@ -62,16 +78,15 @@ package-harvester-webhook: harvester-binaries $(ENV_FILE)
 	@bash $(MK_DIR)/package-harvester-webhook $(ENV_FILE) $(ROOT) $(DOCKER_PROGRESS)
 
 # ---- Package harvester-upgrade image ----
-package-harvester-upgrade: harvester-binaries $(ENV_FILE)
+package-harvester-upgrade: harvester-binaries build-installer $(ENV_FILE)
 	@echo "===> Packaging harvester-upgrade image"
-	@bash $(MK_DIR)/package-harvester-upgrade $(ENV_FILE) $(ROOT) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/package-harvester-upgrade $(ENV_FILE) $(ROOT) $(BIN_IMAGE) $(INSTALLER_BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
 
 # ---- Clean ----
 clean:
 	@echo "===> Cleaning build artifacts"
 	@rm -rf $(ROOT)/bin
 	@rm -f $(ROOT)/package/harvester $(ROOT)/package/harvester-webhook $(ROOT)/harvester-env.sh
-	@rm -f $(ROOT)/package/upgrade/upgrade-helper
 	@rm -f $(MK_DIR)/.addons.stamp
 
 .DEFAULT_GOAL := package-harvester

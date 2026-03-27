@@ -11,7 +11,12 @@ PACKAGE_HARVESTER_REPO_DIR="${TOP_DIR}/package/harvester-repo"
 cd ${TOP_DIR}
 
 source ${SCRIPTS_DIR}/lib/addon
-addons_path=${HARVESTER_DIR}/../addons
+# Use /addons if it exists (Docker build), otherwise fall back to relative path
+if [ -d "/addons" ]; then
+    addons_path=/addons
+else
+    addons_path=${HARVESTER_DIR}/../addons
+fi
 load_and_source_addon ${addons_path} https://github.com/harvester/addons.git main
 # generate template file in ${addons_path}, and this is used for subsequent checks
 generate_addon ${addons_path}
@@ -38,9 +43,23 @@ mkdir -p ${IMAGES_DIR}
 mkdir -p ${IMAGES_LISTS_DIR}
 mkdir -p ${RANCHERD_IMAGES_DIR}
 
-source ${HARVESTER_DIR}/scripts/version
-HARVESTER_VERSION=${VERSION}
-HARVESTER_APP_VERSION=${APP_VERSION}
+# Source version variables
+# Use harvester-env.sh if it exists (Docker build), otherwise fall back to scripts/version
+if [ -f "/workspace/harvester-env.sh" ]; then
+    source /workspace/harvester-env.sh
+    HARVESTER_VERSION=${HARVESTER_VERSION}
+    HARVESTER_APP_VERSION=${HARVESTER_APP_VERSION}
+    VERSION=${HARVESTER_VERSION}
+    APP_VERSION=${HARVESTER_APP_VERSION}
+    CHART_VERSION=${HARVESTER_CHART_VERSION}
+    REPO=${HARVESTER_REPO}
+    IMAGE_PUSH_TAG=${HARVESTER_IMAGE_PUSH_TAG}
+    ARCH=${HARVESTER_ARCH}
+else
+    source ${HARVESTER_DIR}/scripts/version
+    HARVESTER_VERSION=${VERSION}
+    HARVESTER_APP_VERSION=${APP_VERSION}
+fi
 
 # Normalize Docker image names to include full registry path
 # Args: $1 - input file path

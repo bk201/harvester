@@ -4,7 +4,10 @@ set -e
 # Arguments passed from Makefile
 ENV_FILE="$1"
 ROOT="$2"
-DOCKER_PROGRESS="${3:-auto}"
+BIN_IMAGE="$3"
+INSTALLER_BIN_IMAGE="$4"
+CONTAINER_WORKDIR="$5"
+DOCKER_PROGRESS="${6:-auto}"
 
 # Source version variables
 . "$ENV_FILE"
@@ -14,14 +17,13 @@ echo "  Version: $HARVESTER_VERSION"
 echo "  Tag: $HARVESTER_REPO/harvester-upgrade:$HARVESTER_TAG"
 echo "  Push tag: $HARVESTER_REPO/harvester-upgrade:$HARVESTER_IMAGE_PUSH_TAG"
 
-# Copy binary to package directory
-echo "Copying binary to package directory..."
-cp "$ROOT/bin/upgrade-helper" "$ROOT/package/upgrade/upgrade-helper"
-
 # Build final image from package/upgrade/Dockerfile
 echo "Building final image from package/upgrade/Dockerfile..."
 docker build \
     --progress="$DOCKER_PROGRESS" \
+    --build-arg BIN_IMAGE="$BIN_IMAGE" \
+    --build-arg INSTALLER_BIN_IMAGE="$INSTALLER_BIN_IMAGE" \
+    --build-arg CONTAINER_WORKDIR="$CONTAINER_WORKDIR" \
     -f "$ROOT/package/upgrade/Dockerfile" \
     -t "$HARVESTER_REPO/harvester-upgrade:$HARVESTER_TAG" \
     "$ROOT/package/upgrade/"

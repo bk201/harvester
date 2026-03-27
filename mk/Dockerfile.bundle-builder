@@ -1,0 +1,13 @@
+# Multi-stage build for bundle creation environment
+FROM harvester-builder:local AS base
+
+# Stage for addon integration
+FROM harvester-addons:local AS addons
+
+# Final stage - combine everything
+FROM base
+
+# Copy addons from the addons image
+COPY --from=addons /addons /addons
+
+WORKDIR /workspace
