@@ -17,10 +17,10 @@ COPY cmd/ cmd/
 COPY harvester-env.sh ./
 
 # Build script (will source harvester-env.sh)
-COPY mk/build-harvester mk/build-harvester
+COPY mk/harvester-binaries/build mk/harvester-binaries/build
 
 ENV GOFLAGS=-buildvcs=false
 
 RUN --mount=type=cache,target=/go/pkg/mod,id=harvester-go-mod \
     --mount=type=cache,target=${CONTAINER_WORKDIR}/.cache/go-build,id=harvester-go-build \
-    bash mk/build-harvester
+    bash mk/harvester-binaries/build

@@ -19,7 +19,7 @@ echo "Building offline bundle for Harvester ${HARVESTER_VERSION}..."
 docker build \
     --progress="$DOCKER_PROGRESS" \
     --build-arg CONTAINER_WORKDIR="${CONTAINER_WORKDIR}" \
-    -f "$MK_DIR/Dockerfile.bundle" \
+    -f "$MK_DIR/build-bundle/Dockerfile" \
     -t "$BUNDLE_IMAGE" \
     "$ROOT"
 

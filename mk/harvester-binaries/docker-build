@@ -13,7 +13,7 @@ source "$MK_DIR/lib.sh"
 
 docker build \
     --progress="$DOCKER_PROGRESS" \
-    -f "$MK_DIR/Dockerfile.harvester" \
+    -f "$MK_DIR/harvester-binaries/Dockerfile" \
     -t "$BIN_IMAGE" \
     "$ROOT"
 

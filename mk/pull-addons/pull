@@ -32,9 +32,9 @@ echo "Pulling addons into image $ADDONS_IMAGE..."
 docker build \
     --no-cache \
     --progress="$DOCKER_PROGRESS" \
-    -f "$MK_DIR/Dockerfile.addons" \
+    -f "$MK_DIR/pull-addons/Dockerfile" \
     -t "$ADDONS_IMAGE" \
-    "$MK_DIR"
+    "$MK_DIR/pull-addons"
 
 echo "$REMOTE_SHA" > "$STAMP_FILE"
 echo "Addons image ready: $ADDONS_IMAGE (${REMOTE_SHA:0:8})"

@@ -13,7 +13,7 @@ source "$MK_DIR/lib.sh"
 
 docker build \
     --progress="$DOCKER_PROGRESS" \
-    -f "$MK_DIR/Dockerfile.installer" \
+    -f "$MK_DIR/build-installer/Dockerfile" \
     -t "$BIN_IMAGE" \
     "$ROOT"
 
