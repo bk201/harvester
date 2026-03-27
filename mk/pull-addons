@@ -14,13 +14,17 @@ echo "Checking remote addons commit..."
 REMOTE_SHA=$(git ls-remote "$REMOTE_URL" "refs/heads/$BRANCH" | cut -f1)
 
 # Check if we need to rebuild
-if [ -f "$STAMP_FILE" ]; then
+IMAGE_EXISTS=$(docker images -q "$ADDONS_IMAGE" 2>/dev/null)
+
+if [ -f "$STAMP_FILE" ] && [ -n "$IMAGE_EXISTS" ]; then
     CACHED_SHA=$(cat "$STAMP_FILE")
     if [ "$REMOTE_SHA" = "$CACHED_SHA" ]; then
         echo "Addons unchanged (${REMOTE_SHA:0:8}), skipping pull"
         exit 0
     fi
     echo "Addons changed: ${CACHED_SHA:0:8} -> ${REMOTE_SHA:0:8}"
+elif [ ! -n "$IMAGE_EXISTS" ]; then
+    echo "Addons image not found, rebuilding..."
 fi
 
 echo "Pulling addons into image $ADDONS_IMAGE..."
