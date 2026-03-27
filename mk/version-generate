@@ -9,7 +9,7 @@ if [ $# -ne 1 ]; then
 fi
 
 OUTPUT_DIR="$1"
-OUTPUT_FILE="${OUTPUT_DIR}/versions.env"
+OUTPUT_FILE="${OUTPUT_DIR}/harvester-env.sh"
 
 # Calculate version metadata (from scripts/version)
 TOP_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." &> /dev/null && pwd )"
@@ -92,9 +92,6 @@ readonly HARVESTER_COMMIT_BRANCH=${COMMIT_BRANCH}
 readonly HARVESTER_COMMIT_TAG=${COMMIT_TAG}
 readonly HARVESTER_MIN_UPGRADABLE_VERSION=${MIN_UPGRADABLE_VERSION}
 EOF
-
-# Also write to harvester-env.sh (same content as versions.env, for sourcing in build scripts)
-cp "${OUTPUT_FILE}" "${TOP_DIR}/harvester-env.sh"
 
 # Display the generated file
 cat "${OUTPUT_FILE}"
