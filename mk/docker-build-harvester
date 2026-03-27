@@ -8,26 +8,8 @@ BIN_IMAGE="$3"
 CONTAINER_WORKDIR="$4"
 DOCKER_PROGRESS="${5:-auto}"
 
-# Extract a file from a Docker image
-extract_binary() {
-    local image="$1"
-    local container_path="$2"
-    local host_path="$3"
-    local container_name="harvester-bin-extract"
-
-    echo "Extracting file from image..."
-    echo "  Image: $image:/$container_path -> host:/$host_path"
-
-    # Clean up any stale container from a previous failed run
-    docker rm -f "$container_name" >/dev/null 2>&1 || true
-    trap "docker rm -f '$container_name' >/dev/null 2>&1 || true" EXIT
-
-    docker create --name "$container_name" "$image" >/dev/null
-    docker cp "$container_name:$container_path" "$host_path"
-    docker rm "$container_name" >/dev/null
-
-    trap - EXIT
-}
+# Source shared library functions
+source "$MK_DIR/lib.sh"
 
 docker build \
     --progress="$DOCKER_PROGRESS" \
@@ -35,7 +17,7 @@ docker build \
     -t "$BIN_IMAGE" \
     "$ROOT"
 
-# Extract binary from image
-extract_binary "$BIN_IMAGE" "$CONTAINER_WORKDIR/bin/harvester" "$ROOT/bin/harvester"
-extract_binary "$BIN_IMAGE" "$CONTAINER_WORKDIR/bin/harvester-webhook" "$ROOT/bin/harvester-webhook"
-extract_binary "$BIN_IMAGE" "$CONTAINER_WORKDIR/bin/upgrade-helper" "$ROOT/bin/upgrade-helper"
+# Extract binaries from image
+extract_binary "$BIN_IMAGE" "$CONTAINER_WORKDIR/bin/harvester" "$ROOT/bin/harvester" "harvester-bin-extract"
+extract_binary "$BIN_IMAGE" "$CONTAINER_WORKDIR/bin/harvester-webhook" "$ROOT/bin/harvester-webhook" "harvester-bin-extract"
+extract_binary "$BIN_IMAGE" "$CONTAINER_WORKDIR/bin/upgrade-helper" "$ROOT/bin/upgrade-helper" "harvester-bin-extract"
