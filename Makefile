@@ -7,7 +7,10 @@ ADDONS_IMAGE           := harvester-addons:local
 CONTAINER_WORKDIR := /go/src/github.com/harvester/harvester
 ENV_FILE          := $(ROOT)/harvester-env.sh
 HOST_ARCH         := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-DOCKER_PROGRESS   ?= auto
+DOCKER_PROGRESS   ?= plain
+
+# Common Go dependencies for all builds
+GO_MOD_DEPS := $(ROOT)/go.mod $(ROOT)/go.sum $(ROOT)/go.work $(ROOT)/go.work.sum $(ROOT)/vendor
 
 .PHONY: pull-addons harvester-binaries build build-installer package package-harvester package-harvester-webhook package-harvester-upgrade clean $(ENV_FILE)
 
@@ -34,8 +37,8 @@ pull-addons:
 	@bash $(MK_DIR)/pull-addons $(MK_DIR) $(ADDONS_IMAGE) $(DOCKER_PROGRESS)
 
 # ---- Compile harvester binaries ----
-harvester-binaries: $(MK_DIR)/.builder.stamp $(ENV_FILE) \
-    $(shell find $(ROOT)/pkg $(ROOT)/cmd -name '*.go') $(ROOT)/main.go $(ROOT)/go.mod $(ROOT)/go.sum \
+harvester-binaries: $(MK_DIR)/.builder.stamp $(ENV_FILE) $(GO_MOD_DEPS) \
+    $(shell find $(ROOT)/pkg $(ROOT)/cmd -name '*.go') $(ROOT)/main.go \
     $(MK_DIR)/build-harvester | $(ROOT)/bin
 	@bash $(MK_DIR)/docker-build-harvester $(MK_DIR) $(ROOT) $(BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
 
@@ -43,8 +46,8 @@ harvester-binaries: $(MK_DIR)/.builder.stamp $(ENV_FILE) \
 build: harvester-binaries
 
 # ---- Compile harvester-installer binary ----
-$(ROOT)/bin/harvester-installer: $(MK_DIR)/.builder.stamp $(ENV_FILE) pull-addons \
-    $(shell find $(ROOT)/installer -name '*.go') $(ROOT)/go.mod $(ROOT)/go.sum \
+$(ROOT)/bin/harvester-installer: $(MK_DIR)/.builder.stamp $(ENV_FILE) pull-addons $(GO_MOD_DEPS) $\
+    $(shell find $(ROOT)/installer) \
     $(ROOT)/installer/scripts/build | $(ROOT)/bin
 	@bash $(MK_DIR)/docker-build-installer $(MK_DIR) $(ROOT) $(INSTALLER_BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
 
