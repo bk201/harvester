@@ -5,6 +5,23 @@ set -e
 MK_DIR="$1"
 ADDONS_IMAGE="$2"
 DOCKER_PROGRESS="${3:-auto}"
+STAMP_FILE="$MK_DIR/.addons.stamp"
+
+REMOTE_URL="https://github.com/harvester/addons.git"
+BRANCH="main"
+
+echo "Checking remote addons commit..."
+REMOTE_SHA=$(git ls-remote "$REMOTE_URL" "refs/heads/$BRANCH" | cut -f1)
+
+# Check if we need to rebuild
+if [ -f "$STAMP_FILE" ]; then
+    CACHED_SHA=$(cat "$STAMP_FILE")
+    if [ "$REMOTE_SHA" = "$CACHED_SHA" ]; then
+        echo "Addons unchanged (${REMOTE_SHA:0:8}), skipping pull"
+        exit 0
+    fi
+    echo "Addons changed: ${CACHED_SHA:0:8} -> ${REMOTE_SHA:0:8}"
+fi
 
 echo "Pulling addons into image $ADDONS_IMAGE..."
 
@@ -15,4 +32,5 @@ docker build \
     -t "$ADDONS_IMAGE" \
     "$MK_DIR"
 
-echo "Addons image ready: $ADDONS_IMAGE"
+echo "$REMOTE_SHA" > "$STAMP_FILE"
+echo "Addons image ready: $ADDONS_IMAGE (${REMOTE_SHA:0:8})"

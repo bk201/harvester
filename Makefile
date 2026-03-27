@@ -70,6 +70,6 @@ clean:
 	rm -rf $(ROOT)/bin
 	rm -f $(ROOT)/package/harvester $(ROOT)/package/harvester-webhook $(ROOT)/harvester-env.sh
 	rm -f $(ROOT)/package/upgrade/upgrade-helper
-	rm -f $(MK_DIR)/.builder.stamp
+	rm -f $(MK_DIR)/.builder.stamp $(MK_DIR)/.addons.stamp
 
 .DEFAULT_GOAL := package-harvester
