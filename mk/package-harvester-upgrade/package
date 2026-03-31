@@ -17,14 +17,14 @@ echo "  Version: $HARVESTER_VERSION"
 echo "  Tag: $HARVESTER_REPO/harvester-upgrade:$HARVESTER_TAG"
 echo "  Push tag: $HARVESTER_REPO/harvester-upgrade:$HARVESTER_IMAGE_PUSH_TAG"
 
-# Build final image from package/upgrade/Dockerfile
-echo "Building final image from package/upgrade/Dockerfile..."
+# Build final image from mk/package-harvester-upgrade/Dockerfile
+echo "Building final image from mk/package-harvester-upgrade/Dockerfile..."
 docker build \
     --progress="$DOCKER_PROGRESS" \
     --build-arg BIN_IMAGE="$BIN_IMAGE" \
     --build-arg INSTALLER_BIN_IMAGE="$INSTALLER_BIN_IMAGE" \
     --build-arg CONTAINER_WORKDIR="$CONTAINER_WORKDIR" \
-    -f "$ROOT/package/upgrade/Dockerfile" \
+    -f "$(dirname "$0")/Dockerfile" \
     -t "$HARVESTER_REPO/harvester-upgrade:$HARVESTER_TAG" \
     "$ROOT/package/upgrade/"
 
