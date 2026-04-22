@@ -1,0 +1,25 @@
+#!/bin/bash
+set -e
+
+# Arguments passed from Makefile
+MK_DIR="$1"
+ROOT="$2"
+CONTAINER_WORKDIR="$3"
+DOCKER_PROGRESS="${4:-auto}"
+
+# Source shared library functions
+source "$MK_DIR/lib.sh"
+
+docker build \
+    --progress="$DOCKER_PROGRESS" \
+    -f "$MK_DIR/test-integration/Dockerfile" \
+    -t harvester-integration-test:latest \
+    "$ROOT"
+
+docker run --rm -it \
+    --privileged \
+    --network host \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v harvester-integration-test-cache:${CONTAINER_WORKDIR}/.cache/go-build \
+    harvester-integration-test:latest \
+    bash mk/test-integration/build

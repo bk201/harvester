@@ -61,6 +61,11 @@ test: builder-image
 	@printf "$(BOLD)$(CYAN)===> Running harvester unit tests$(RESET)\n"
 	@bash $(MK_DIR)/test/docker-build $(MK_DIR) $(ROOT) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
 
+# ---- Test integration ----
+test-integration: builder-image $(ENV_FILE)
+	@printf "$(BOLD)$(CYAN)===> Running harvester integration tests$(RESET)\n"
+	@bash $(MK_DIR)/test-integration/docker-build $(MK_DIR) $(ROOT) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+
 # ---- Compile harvester-installer binary ----
 build-installer: builder-image $(ENV_FILE) pull-addons | $(ROOT)/bin
 	@printf "$(BOLD)$(CYAN)===> Building harvester-installer binary$(RESET)\n"
@@ -104,6 +109,11 @@ clean:
 	@rm -rf $(ROOT)/bin
 	@rm -f $(ROOT)/package/harvester $(ROOT)/package/harvester-webhook $(ROOT)/harvester-env.sh
 	@rm -f $(MK_DIR)/.addons.stamp
+
+
+very-clean: clean
+	@printf "$(BOLD)$(YELLOW)===> Removing builder images images$(RESET)\n"
+	@docker rmi -f $(BUILDER_IMAGE) $(BIN_IMAGE) $(INSTALLER_BIN_IMAGE) $(ADDONS_IMAGE) $(BUNDLE_BUILDER_IMAGE) $(BUNDLE_IMAGE) || true
 
 .DEFAULT_GOAL := package-harvester
 
