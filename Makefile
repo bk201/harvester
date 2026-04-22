@@ -16,7 +16,7 @@ ENV_FILE          := $(ROOT)/harvester-env.sh
 HOST_ARCH         := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 DOCKER_PROGRESS   ?= auto
 
-.PHONY: builder-image pull-addons harvester-binaries build build-installer bundle-builder-image build-bundle package package-harvester package-harvester-webhook package-harvester-upgrade clean
+.PHONY: builder-image pull-addons harvester-binaries build build-installer bundle-builder-image build-bundle package package-harvester package-harvester-webhook package-harvester-upgrade ci clean
 
 # ---- Directories ----
 $(ROOT)/bin:
@@ -49,6 +49,17 @@ harvester-binaries: builder-image $(ENV_FILE) | $(ROOT)/bin
 
 # ---- Build ----
 build: harvester-binaries
+
+
+# ---- Validate ----
+validate: builder-image
+	@printf "$(BOLD)$(CYAN)===> Validating harvester GO sources$(RESET)\n"
+	@bash $(MK_DIR)/validate/docker-build $(MK_DIR) $(ROOT) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+
+# ---- Test ----
+test: builder-image
+	@printf "$(BOLD)$(CYAN)===> Running harvester unit tests$(RESET)\n"
+	@bash $(MK_DIR)/test/docker-build $(MK_DIR) $(ROOT) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
 
 # ---- Compile harvester-installer binary ----
 build-installer: builder-image $(ENV_FILE) pull-addons | $(ROOT)/bin
@@ -95,3 +106,6 @@ clean:
 	@rm -f $(MK_DIR)/.addons.stamp
 
 .DEFAULT_GOAL := package-harvester
+
+
+ci: validate build test

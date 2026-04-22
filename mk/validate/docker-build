@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+
+# Arguments passed from Makefile
+MK_DIR="$1"
+ROOT="$2"
+CONTAINER_WORKDIR="$3"
+DOCKER_PROGRESS="${4:-auto}"
+
+# Source shared library functions
+source "$MK_DIR/lib.sh"
+
+docker build \
+    --progress="$DOCKER_PROGRESS" \
+    -f "$MK_DIR/validate/Dockerfile" \
+    "$ROOT"
