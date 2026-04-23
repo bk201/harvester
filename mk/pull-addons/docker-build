@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e
 
-ADDONS_IMAGE="$1"
-DOCKER_PROGRESS="${DOCKER_PROGRESS:-auto}"
-
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 STAMP_FILE="$SCRIPT_DIR/../.addons.stamp"
 
@@ -14,7 +11,7 @@ echo "Checking remote addons commit..."
 REMOTE_SHA=$(git ls-remote "$REMOTE_URL" "refs/heads/$BRANCH" | cut -f1)
 
 # Check if we need to rebuild
-IMAGE_EXISTS=$(docker images -q "$ADDONS_IMAGE" 2>/dev/null)
+IMAGE_EXISTS=$(docker images -q "$MK_ADDONS_IMAGE" 2>/dev/null)
 
 if [ -f "$STAMP_FILE" ] && [ -n "$IMAGE_EXISTS" ]; then
     CACHED_SHA=$(cat "$STAMP_FILE")
@@ -27,14 +24,14 @@ elif [ ! -n "$IMAGE_EXISTS" ]; then
     echo "Addons image not found, rebuilding..."
 fi
 
-echo "Pulling addons into image $ADDONS_IMAGE..."
+echo "Pulling addons into image $MK_ADDONS_IMAGE..."
 
 docker build \
     --no-cache \
-    --progress="$DOCKER_PROGRESS" \
+    --progress="$MK_DOCKER_PROGRESS" \
     -f "$SCRIPT_DIR/Dockerfile" \
-    -t "$ADDONS_IMAGE" \
+    -t "$MK_ADDONS_IMAGE" \
     "$SCRIPT_DIR"
 
 echo "$REMOTE_SHA" > "$STAMP_FILE"
-echo "Addons image ready: $ADDONS_IMAGE (${REMOTE_SHA:0:8})"
+echo "Addons image ready: $MK_ADDONS_IMAGE (${REMOTE_SHA:0:8})"

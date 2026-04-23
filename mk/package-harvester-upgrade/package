@@ -1,16 +1,8 @@
 #!/bin/bash
 set -e
 
-# Arguments passed from Makefile
-ENV_FILE="$1"
-ROOT="$2"
-BIN_IMAGE="$3"
-INSTALLER_BIN_IMAGE="$4"
-CONTAINER_WORKDIR="$5"
-DOCKER_PROGRESS="${DOCKER_PROGRESS:-auto}"
-
 # Source version variables
-. "$ENV_FILE"
+. "$MK_ENV_FILE"
 
 echo "Packaging harvester-upgrade image..."
 echo "  Version: $HARVESTER_VERSION"
@@ -20,13 +12,13 @@ echo "  Push tag: $HARVESTER_REPO/harvester-upgrade:$HARVESTER_IMAGE_PUSH_TAG"
 # Build final image from mk/package-harvester-upgrade/Dockerfile
 echo "Building final image from mk/package-harvester-upgrade/Dockerfile..."
 docker build \
-    --progress="$DOCKER_PROGRESS" \
-    --build-arg BIN_IMAGE="$BIN_IMAGE" \
-    --build-arg INSTALLER_BIN_IMAGE="$INSTALLER_BIN_IMAGE" \
-    --build-arg CONTAINER_WORKDIR="$CONTAINER_WORKDIR" \
-    -f "$(dirname "$0")/Dockerfile" \
+    --progress="$MK_DOCKER_PROGRESS" \
+    --build-arg MK_CONTAINER_WORKDIR \
+    --build-arg BIN_IMAGE="$MK_BIN_IMAGE" \
+    --build-arg INSTALLER_BIN_IMAGE="$MK_INSTALLER_BIN_IMAGE" \
+    -f "$(dirname "${BASH_SOURCE[0]}")/Dockerfile" \
     -t "$HARVESTER_REPO/harvester-upgrade:$HARVESTER_TAG" \
-    "$ROOT/package/upgrade/"
+    "$MK_ROOT/package/upgrade/"
 
 # Tag with additional tag
 echo "Tagging image..."

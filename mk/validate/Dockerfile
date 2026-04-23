@@ -1,7 +1,7 @@
 FROM harvester-builder:local as builder
 
-ARG CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
-WORKDIR ${CONTAINER_WORKDIR}
+ARG MK_CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
+WORKDIR ${MK_CONTAINER_WORKDIR}
 
 # Vendor and module files change rarely — keep as early cached layers
 COPY go.mod go.sum go.work go.work.sum ./
@@ -20,5 +20,5 @@ COPY .golangci.yaml .golangci.yaml
 FROM builder as run
 
 RUN --mount=type=cache,target=/go/pkg/mod,id=harvester-go-mod \
-    --mount=type=cache,target=${CONTAINER_WORKDIR}/.cache/go-build,id=harvester-go-build \
+    --mount=type=cache,target=${MK_CONTAINER_WORKDIR}/.cache/go-build,id=harvester-go-build \
     golangci-lint run -v --timeout=20m

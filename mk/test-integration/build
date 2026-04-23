@@ -6,7 +6,7 @@ set -ex
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 
 # Source version variables
-. ./harvester-env.sh
+. ./mk-env.sh
 
 export PRELOADING_IMAGES="rancher/harvester-webhook:${HARVESTER_TAG}"
 export WEBHOOK_IMAGE_NAME="rancher/harvester-webhook:${HARVESTER_TAG}"

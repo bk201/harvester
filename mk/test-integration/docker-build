@@ -1,14 +1,13 @@
 #!/bin/bash
 set -e
 
-CONTAINER_WORKDIR="$1"
-DOCKER_PROGRESS="${DOCKER_PROGRESS:-auto}"
-
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 docker build \
-    --progress="$DOCKER_PROGRESS" \
+    --progress="$MK_DOCKER_PROGRESS" \
+    --build-arg MK_CONTAINER_WORKDIR \
+    --build-arg MK_ENV_FILE_NAME \
     -f "$SCRIPT_DIR/Dockerfile" \
     -t harvester-integration-test:latest \
     "$ROOT"
@@ -17,6 +16,6 @@ docker run --rm -it \
     --privileged \
     --network host \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v harvester-integration-test-cache:${CONTAINER_WORKDIR}/.cache/go-build \
+    -v harvester-integration-test-cache:${MK_CONTAINER_WORKDIR}/.cache/go-build \
     harvester-integration-test:latest \
     bash mk/test-integration/build

@@ -1,7 +1,7 @@
 ARG HARVESTER_INSTALLER_REF=master-head
 ARG BIN_IMAGE=harvester-bin:local
 ARG INSTALLER_BIN_IMAGE=harvester-installer-bin:local
-ARG CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
+ARG MK_CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
 
 FROM registry.opensuse.org/isv/rancher/harvester/os/dev/main/baseos:latest as baseos
 FROM ${BIN_IMAGE} as harvester-binaries
@@ -9,7 +9,7 @@ FROM ${INSTALLER_BIN_IMAGE} as installer-binary
 FROM registry.suse.com/bci/bci-base:16.0
 
 ARG ARCH=amd64
-ARG CONTAINER_WORKDIR
+ARG MK_CONTAINER_WORKDIR
 ENV ARCH=${ARCH}
 
 ARG KUBECTL_VERSION=v1.33.7
@@ -53,8 +53,8 @@ RUN KUBECTL_SHA256=KUBECTL_SHA256_${ARCH} && \
 # Copy elemental binary to be used for upgrades
 COPY --from=baseos /usr/bin/elemental /usr/local/bin/elemental
 # Copy binaries from build images
-COPY --from=installer-binary ${CONTAINER_WORKDIR}/bin/harvester-installer /usr/local/bin/harvester-installer
-COPY --from=harvester-binaries ${CONTAINER_WORKDIR}/bin/upgrade-helper /usr/local/bin/upgrade-helper
+COPY --from=installer-binary ${MK_CONTAINER_WORKDIR}/bin/harvester-installer /usr/local/bin/harvester-installer
+COPY --from=harvester-binaries ${MK_CONTAINER_WORKDIR}/bin/upgrade-helper /usr/local/bin/upgrade-helper
 # Copy scripts and resources from build context
 COPY do_upgrade_node.sh /usr/local/bin/
 COPY upgrade_node.sh /usr/local/bin/

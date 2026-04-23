@@ -16,7 +16,7 @@ package/upgrade/addons
 
 installer/.deploy
 
-/harvester-env.sh
+/mk-env.sh
 mk/.builder.stamp
 mk/.addons.stamp
 

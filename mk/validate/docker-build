@@ -1,12 +1,11 @@
 #!/bin/bash
 set -e
 
-DOCKER_PROGRESS="${DOCKER_PROGRESS:-auto}"
-
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 docker build \
-    --progress="$DOCKER_PROGRESS" \
+    --progress="$MK_DOCKER_PROGRESS" \
+    --build-arg MK_CONTAINER_WORKDIR \
     -f "$SCRIPT_DIR/Dockerfile" \
     "$ROOT"

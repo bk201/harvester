@@ -1,13 +1,14 @@
 FROM harvester-bundle-builder:local as builder
 
-ARG CONTAINER_WORKDIR=/workspace
-WORKDIR ${CONTAINER_WORKDIR}
+ARG MK_CONTAINER_WORKDIR=/workspace
+WORKDIR ${MK_CONTAINER_WORKDIR}
 
 # Copy necessary source files
 COPY deploy/ harvester/deploy/
 COPY installer/ installer/
 COPY scripts/version harvester/scripts/version
-COPY harvester-env.sh ./harvester-env.sh
+ARG MK_ENV_FILE_NAME=mk-env.sh
+COPY ${MK_ENV_FILE_NAME} harvester-env.sh
 
 FROM builder as run
 

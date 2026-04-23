@@ -1,19 +1,17 @@
 #!/bin/bash
 set -e
 
-BIN_IMAGE="$1"
-CONTAINER_WORKDIR="$2"
-DOCKER_PROGRESS="${DOCKER_PROGRESS:-auto}"
-
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 source "$SCRIPT_DIR/../lib.sh"
 
 docker build \
-    --progress="$DOCKER_PROGRESS" \
+    --progress="$MK_DOCKER_PROGRESS" \
+    --build-arg MK_CONTAINER_WORKDIR \
+    --build-arg MK_ENV_FILE_NAME \
     -f "$SCRIPT_DIR/Dockerfile" \
-    -t "$BIN_IMAGE" \
+    -t "$MK_INSTALLER_BIN_IMAGE" \
     "$ROOT"
 
-extract_binary "$BIN_IMAGE" "$CONTAINER_WORKDIR/bin/harvester-installer" "$ROOT/bin/harvester-installer" "harvester-installer-bin-extract"
+extract_binary "$MK_INSTALLER_BIN_IMAGE" "$MK_CONTAINER_WORKDIR/bin/harvester-installer" "$ROOT/bin/harvester-installer" "harvester-installer-bin-extract"

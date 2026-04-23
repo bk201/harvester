@@ -1,6 +1,6 @@
 #!/bin/bash
 # DESC: Runs the unit tests
-set -ex
+set -e
 
 # The root of the harvester directory
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"

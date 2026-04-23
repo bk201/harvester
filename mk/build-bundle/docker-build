@@ -1,25 +1,21 @@
 #!/bin/bash
 set -e
 
-BUNDLE_IMAGE="$1"
-ENV_FILE="$2"
-CONTAINER_WORKDIR="$3"
-DOCKER_PROGRESS="${DOCKER_PROGRESS:-auto}"
-
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 
-source "$ENV_FILE"
+source "$MK_ENV_FILE"
 
 echo "Building offline bundle for Harvester ${HARVESTER_VERSION}..."
 
 docker build \
-    --progress="$DOCKER_PROGRESS" \
-    --build-arg CONTAINER_WORKDIR="${CONTAINER_WORKDIR}" \
+    --progress="$MK_DOCKER_PROGRESS" \
+    --build-arg MK_CONTAINER_WORKDIR \
+    --build-arg MK_ENV_FILE_NAME \
     -f "$SCRIPT_DIR/Dockerfile" \
-    -t "$BUNDLE_IMAGE" \
+    -t "$MK_BUNDLE_IMAGE" \
     "$ROOT"
 
-echo "Bundle image created: $BUNDLE_IMAGE"
-echo "  Bundle path (in image): ${CONTAINER_WORKDIR}/installer/package/harvester-os/iso/bundle/"
-echo "  Charts path (in image): ${CONTAINER_WORKDIR}/installer/package/harvester-repo/charts/"
+echo "Bundle image created: $MK_BUNDLE_IMAGE"
+echo "  Bundle path (in image): ${MK_CONTAINER_WORKDIR}/installer/package/harvester-os/iso/bundle/"
+echo "  Charts path (in image): ${MK_CONTAINER_WORKDIR}/installer/package/harvester-repo/charts/"
