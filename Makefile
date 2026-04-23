@@ -26,7 +26,9 @@ export MK_ADDONS_IMAGE MK_BUNDLE_BUILDER_IMAGE MK_BUNDLE_IMAGE MK_ENV_FILE MK_EN
 
 HOST_ARCH              := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 
-.PHONY: builder-image pull-addons harvester-binaries build build-installer bundle-builder-image build-bundle package package-harvester package-harvester-webhook package-harvester-upgrade ci clean default
+.PHONY: builder-image pull-addons harvester-binaries build build-installer bundle-builder-image \
+	build-bundle package package-harvester package-harvester-webhook package-harvester-upgrade ci \
+	arm clean default
 
 # ---- Directories ----
 $(ROOT)/bin:
@@ -128,5 +130,7 @@ clean-all: clean
 .DEFAULT_GOAL := default
 
 default: build test package
+
+arm: build package
 
 ci: validate build test package-harvester-webhook package-harvester-upgrade test-integration package-harvester
