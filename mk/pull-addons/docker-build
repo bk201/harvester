@@ -2,7 +2,10 @@
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 STAMP_FILE="$SCRIPT_DIR/../.addons.stamp"
+
+source "$SCRIPT_DIR/../lib.sh"
 
 REMOTE_URL="https://github.com/harvester/addons.git"
 BRANCH="main"
@@ -13,26 +16,34 @@ REMOTE_SHA=$(git ls-remote "$REMOTE_URL" "refs/heads/$BRANCH" | cut -f1)
 # Check if we need to rebuild
 IMAGE_EXISTS=$(docker images -q "$MK_ADDONS_IMAGE" 2>/dev/null)
 
+DO_ADDONS_PULL="true"
+
 if [ -f "$STAMP_FILE" ] && [ -n "$IMAGE_EXISTS" ]; then
     CACHED_SHA=$(cat "$STAMP_FILE")
     if [ "$REMOTE_SHA" = "$CACHED_SHA" ]; then
         echo "Addons unchanged (${REMOTE_SHA:0:8}), skipping pull"
-        exit 0
+        DO_ADDONS_PULL="false"
+    else
+        echo "Addons changed: ${CACHED_SHA:0:8} -> ${REMOTE_SHA:0:8}"
     fi
-    echo "Addons changed: ${CACHED_SHA:0:8} -> ${REMOTE_SHA:0:8}"
 elif [ ! -n "$IMAGE_EXISTS" ]; then
     echo "Addons image not found, rebuilding..."
 fi
 
-echo "Pulling addons into image $MK_ADDONS_IMAGE..."
+if [ "$DO_ADDONS_PULL" = "true" ]; then
+    echo "Pulling addons into image $MK_ADDONS_IMAGE..."
 
-docker build \
-    --no-cache \
-    --progress="$MK_DOCKER_PROGRESS" \
-    --build-arg MK_BUILDER_IMAGE \
-    -f "$SCRIPT_DIR/Dockerfile" \
-    -t "$MK_ADDONS_IMAGE" \
-    "$SCRIPT_DIR"
+    docker build \
+        --no-cache \
+        --progress="$MK_DOCKER_PROGRESS" \
+        --build-arg MK_BUILDER_IMAGE \
+        -f "$SCRIPT_DIR/Dockerfile" \
+        -t "$MK_ADDONS_IMAGE" \
+        "$SCRIPT_DIR"
 
-echo "$REMOTE_SHA" > "$STAMP_FILE"
-echo "Addons image ready: $MK_ADDONS_IMAGE (${REMOTE_SHA:0:8})"
+    echo "$REMOTE_SHA" > "$STAMP_FILE"
+    echo "Addons image ready: $MK_ADDONS_IMAGE (${REMOTE_SHA:0:8})"
+fi
+
+mkdir -p "$ROOT/dist/pull-addons"
+extract_binary "$MK_ADDONS_IMAGE" "/addons" "$ROOT/dist/pull-addons/" "harvester-addon-extract"
