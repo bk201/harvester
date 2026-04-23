@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-# Arguments passed from Makefile
-MK_DIR="$1"
-ADDONS_IMAGE="$2"
-DOCKER_PROGRESS="${3:-auto}"
-STAMP_FILE="$MK_DIR/.addons.stamp"
+ADDONS_IMAGE="$1"
+DOCKER_PROGRESS="${2:-auto}"
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+STAMP_FILE="$SCRIPT_DIR/../.addons.stamp"
 
 REMOTE_URL="https://github.com/harvester/addons.git"
 BRANCH="main"
@@ -32,9 +32,9 @@ echo "Pulling addons into image $ADDONS_IMAGE..."
 docker build \
     --no-cache \
     --progress="$DOCKER_PROGRESS" \
-    -f "$MK_DIR/pull-addons/Dockerfile" \
+    -f "$SCRIPT_DIR/Dockerfile" \
     -t "$ADDONS_IMAGE" \
-    "$MK_DIR/pull-addons"
+    "$SCRIPT_DIR"
 
 echo "$REMOTE_SHA" > "$STAMP_FILE"
 echo "Addons image ready: $ADDONS_IMAGE (${REMOTE_SHA:0:8})"

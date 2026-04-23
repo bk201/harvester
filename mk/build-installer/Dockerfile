@@ -1,6 +1,6 @@
 FROM harvester-addons:local AS addons
 
-FROM harvester-builder:local
+FROM harvester-builder:local as builder
 
 ARG CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
 WORKDIR ${CONTAINER_WORKDIR}
@@ -17,6 +17,8 @@ COPY installer/ installer/
 
 # Version variables file
 COPY harvester-env.sh ./
+
+FROM builder as run
 
 ENV GOFLAGS=-buildvcs=false
 

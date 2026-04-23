@@ -1,18 +1,15 @@
 #!/bin/bash
 set -e
 
-# Arguments passed from Makefile
-MK_DIR="$1"
-ROOT="$2"
-CONTAINER_WORKDIR="$3"
-DOCKER_PROGRESS="${4:-auto}"
+CONTAINER_WORKDIR="$1"
+DOCKER_PROGRESS="${2:-auto}"
 
-# Source shared library functions
-source "$MK_DIR/lib.sh"
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 docker build \
     --progress="$DOCKER_PROGRESS" \
-    -f "$MK_DIR/test-integration/Dockerfile" \
+    -f "$SCRIPT_DIR/Dockerfile" \
     -t harvester-integration-test:latest \
     "$ROOT"
 

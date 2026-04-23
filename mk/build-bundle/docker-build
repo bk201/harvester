@@ -1,25 +1,22 @@
 #!/bin/bash
 set -e
 
-# Arguments from Makefile
-MK_DIR="$1"
-ROOT="$2"
-BUNDLE_IMAGE="$3"
-ENV_FILE="$4"
-CONTAINER_WORKDIR="$5"
-DOCKER_PROGRESS="${6:-auto}"
+BUNDLE_IMAGE="$1"
+ENV_FILE="$2"
+CONTAINER_WORKDIR="$3"
+DOCKER_PROGRESS="${4:-auto}"
 
-# Source version variables for display
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
+
 source "$ENV_FILE"
 
 echo "Building offline bundle for Harvester ${HARVESTER_VERSION}..."
 
-# Build the bundle inside Docker image
-# Note: harvester-env.sh is copied into image and sourced by build-bundle script
 docker build \
     --progress="$DOCKER_PROGRESS" \
     --build-arg CONTAINER_WORKDIR="${CONTAINER_WORKDIR}" \
-    -f "$MK_DIR/build-bundle/Dockerfile" \
+    -f "$SCRIPT_DIR/Dockerfile" \
     -t "$BUNDLE_IMAGE" \
     "$ROOT"
 

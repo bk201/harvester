@@ -40,12 +40,12 @@ builder-image:
 # ---- Pull addons into local Docker image ----
 pull-addons: builder-image
 	@printf "$(BOLD)$(CYAN)===> Pulling addons$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(MK_DIR) $(ADDONS_IMAGE) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build $(ADDONS_IMAGE) $(DOCKER_PROGRESS)
 
 # ---- Compile harvester binaries ----
 harvester-binaries: builder-image $(ENV_FILE) | $(ROOT)/bin
 	@printf "$(BOLD)$(CYAN)===> Building harvester binaries (harvester, harvester-webhook, upgrade-helper)$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(MK_DIR) $(ROOT) $(BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build $(BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
 
 # ---- Build ----
 build: harvester-binaries
@@ -54,22 +54,22 @@ build: harvester-binaries
 # ---- Validate ----
 validate: builder-image
 	@printf "$(BOLD)$(CYAN)===> Validating harvester GO sources$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(MK_DIR) $(ROOT) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build $(DOCKER_PROGRESS)
 
 # ---- Test ----
 test: builder-image
 	@printf "$(BOLD)$(CYAN)===> Running harvester unit tests$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(MK_DIR) $(ROOT) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build $(DOCKER_PROGRESS)
 
 # ---- Test integration ----
 test-integration: builder-image $(ENV_FILE)
 	@printf "$(BOLD)$(CYAN)===> Running harvester integration tests$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(MK_DIR) $(ROOT) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
 
 # ---- Compile harvester-installer binary ----
 build-installer: builder-image $(ENV_FILE) pull-addons | $(ROOT)/bin
 	@printf "$(BOLD)$(CYAN)===> Building harvester-installer binary$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(MK_DIR) $(ROOT) $(INSTALLER_BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build $(INSTALLER_BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
 
 # ---- Bundle builder image (extends harvester-builder with addons) ----
 bundle-builder-image: builder-image pull-addons
@@ -83,7 +83,7 @@ bundle-builder-image: builder-image pull-addons
 # ---- Build offline bundle (charts + images) ----
 build-bundle: bundle-builder-image package $(ENV_FILE)
 	@printf "$(BOLD)$(CYAN)===> Building offline bundle (requires network access)$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(MK_DIR) $(ROOT) $(BUNDLE_IMAGE) $(ENV_FILE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build $(BUNDLE_IMAGE) $(ENV_FILE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
 
 # ---- Package all images ----
 package: package-harvester package-harvester-webhook package-harvester-upgrade

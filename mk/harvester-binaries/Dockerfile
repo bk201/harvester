@@ -1,4 +1,4 @@
-FROM harvester-builder:local
+FROM harvester-builder:local as builder
 
 ARG CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
 WORKDIR ${CONTAINER_WORKDIR}
@@ -18,6 +18,8 @@ COPY harvester-env.sh ./
 
 # Build script (will source harvester-env.sh)
 COPY mk/harvester-binaries/build mk/harvester-binaries/build
+
+FROM builder as run
 
 ENV GOFLAGS=-buildvcs=false
 
