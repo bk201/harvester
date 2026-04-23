@@ -9,16 +9,35 @@ echo "  Version: $HARVESTER_VERSION"
 echo "  Tag: $HARVESTER_REPO/harvester-upgrade:$HARVESTER_TAG"
 echo "  Push tag: $HARVESTER_REPO/harvester-upgrade:$HARVESTER_IMAGE_PUSH_TAG"
 
+UPGRADE_CTX="$MK_ROOT/package/upgrade"
+
+cleanup() {
+    rm -f "$UPGRADE_CTX/upgrade-helper" "$UPGRADE_CTX/harvester-installer"
+    rm -rf "$UPGRADE_CTX/addons"
+}
+trap cleanup EXIT
+
+# Extract artifacts from local build images into the build context
+echo "Extracting artifacts from build images..."
+id=$(docker create "$MK_BIN_IMAGE")
+docker cp "$id:$MK_CONTAINER_WORKDIR/bin/upgrade-helper" "$UPGRADE_CTX/upgrade-helper"
+docker rm "$id"
+
+id=$(docker create "$MK_INSTALLER_BIN_IMAGE")
+docker cp "$id:$MK_CONTAINER_WORKDIR/bin/harvester-installer" "$UPGRADE_CTX/harvester-installer"
+docker rm "$id"
+
+id=$(docker create "$MK_ADDONS_IMAGE")
+docker cp "$id:/addons" "$UPGRADE_CTX/"
+docker rm "$id"
+
 # Build final image
 echo "Building final image..."
 docker build \
     --progress="$MK_DOCKER_PROGRESS" \
-    --build-arg MK_CONTAINER_WORKDIR \
-    --build-arg MK_BIN_IMAGE \
-    --build-arg MK_INSTALLER_BIN_IMAGE \
     -f "$MK_ROOT/package/upgrade/Dockerfile" \
     -t "$HARVESTER_REPO/harvester-upgrade:$HARVESTER_TAG" \
-    "$MK_ROOT/package/upgrade/"
+    "$UPGRADE_CTX/"
 
 # Tag with additional tag
 echo "Tagging image..."

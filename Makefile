@@ -120,6 +120,8 @@ clean:
 	@printf "$(BOLD)$(YELLOW)===> Cleaning build artifacts$(RESET)\n"
 	@rm -rf $(ROOT)/bin
 	@rm -f $(ROOT)/package/harvester $(ROOT)/package/harvester-webhook $(MK_ENV_FILE)
+	@rm -f $(ROOT)/package/upgrade/upgrade-helper $(ROOT)/package/upgrade/harvester-installer
+	@rm -rf $(ROOT)/package/upgrade/addons
 	@rm -f $(MK_DIR)/.addons.stamp
 
 
