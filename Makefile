@@ -97,23 +97,23 @@ build-bundle: bundle-builder-image package $(MK_ENV_FILE)
 	@printf "$(BOLD)$(CYAN)===> Building offline bundle (requires network access)$(RESET)\n"
 	@bash $(MK_DIR)/$@/docker-build
 
-# ---- Package all images ----
-package: package-harvester package-harvester-webhook package-harvester-upgrade
-
 # ---- Package harvester image ----
 package-harvester: harvester-binaries $(MK_ENV_FILE)
 	@printf "$(BOLD)$(GREEN)===> Packaging harvester image$(RESET)\n"
-	@bash $(MK_DIR)/package-harvester/package
+	@bash $(MK_DIR)/$@/package
 
 # ---- Package harvester-webhook image ----
 package-harvester-webhook: harvester-binaries $(MK_ENV_FILE)
 	@printf "$(BOLD)$(GREEN)===> Packaging harvester-webhook image$(RESET)\n"
-	@bash $(MK_DIR)/package-harvester-webhook/package
+	@bash $(MK_DIR)/$@/package
 
 # ---- Package harvester-upgrade image ----
 package-harvester-upgrade: harvester-binaries build-installer $(MK_ENV_FILE)
 	@printf "$(BOLD)$(GREEN)===> Packaging harvester-upgrade image$(RESET)\n"
-	@bash $(MK_DIR)/package-harvester-upgrade/package
+	@bash $(MK_DIR)/$@/package
+
+# ---- Package all images ----
+package: package-harvester package-harvester-webhook package-harvester-upgrade
 
 # ---- Clean ----
 clean:
