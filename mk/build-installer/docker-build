@@ -8,6 +8,9 @@ source "$SCRIPT_DIR/../lib.sh"
 
 docker build \
     --progress="$MK_DOCKER_PROGRESS" \
+    --build-arg MK_REPO_ID \
+    --build-arg MK_BUILDER_IMAGE \
+    --build-arg MK_ADDONS_IMAGE \
     --build-arg MK_CONTAINER_WORKDIR \
     --build-arg MK_ENV_FILE_NAME \
     -f "$SCRIPT_DIR/Dockerfile" \

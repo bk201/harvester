@@ -14,8 +14,8 @@ echo "Building final image from mk/package-harvester-upgrade/Dockerfile..."
 docker build \
     --progress="$MK_DOCKER_PROGRESS" \
     --build-arg MK_CONTAINER_WORKDIR \
-    --build-arg BIN_IMAGE="$MK_BIN_IMAGE" \
-    --build-arg INSTALLER_BIN_IMAGE="$MK_INSTALLER_BIN_IMAGE" \
+    --build-arg MK_BIN_IMAGE \
+    --build-arg MK_INSTALLER_BIN_IMAGE \
     -f "$(dirname "${BASH_SOURCE[0]}")/Dockerfile" \
     -t "$HARVESTER_REPO/harvester-upgrade:$HARVESTER_TAG" \
     "$MK_ROOT/package/upgrade/"

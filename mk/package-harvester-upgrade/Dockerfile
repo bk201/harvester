@@ -1,11 +1,11 @@
 ARG HARVESTER_INSTALLER_REF=master-head
-ARG BIN_IMAGE=harvester-bin:local
-ARG INSTALLER_BIN_IMAGE=harvester-installer-bin:local
+ARG MK_BIN_IMAGE
+ARG MK_INSTALLER_BIN_IMAGE
 ARG MK_CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
 
 FROM registry.opensuse.org/isv/rancher/harvester/os/dev/main/baseos:latest as baseos
-FROM ${BIN_IMAGE} as harvester-binaries
-FROM ${INSTALLER_BIN_IMAGE} as installer-binary
+FROM ${MK_BIN_IMAGE} as harvester-binaries
+FROM ${MK_INSTALLER_BIN_IMAGE} as installer-binary
 FROM registry.suse.com/bci/bci-base:16.0
 
 ARG ARCH=amd64

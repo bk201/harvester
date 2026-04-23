@@ -1,4 +1,5 @@
-FROM harvester-builder:local as builder
+ARG MK_BUILDER_IMAGE
+FROM ${MK_BUILDER_IMAGE} as builder
 
 ARG MK_CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
 WORKDIR ${MK_CONTAINER_WORKDIR}

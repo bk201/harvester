@@ -10,6 +10,7 @@ echo "Building offline bundle for Harvester ${HARVESTER_VERSION}..."
 
 docker build \
     --progress="$MK_DOCKER_PROGRESS" \
+    --build-arg MK_BUNDLE_BUILDER_IMAGE \
     --build-arg MK_CONTAINER_WORKDIR \
     --build-arg MK_ENV_FILE_NAME \
     -f "$SCRIPT_DIR/Dockerfile" \

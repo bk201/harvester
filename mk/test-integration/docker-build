@@ -6,16 +6,17 @@ ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
 
 docker build \
     --progress="$MK_DOCKER_PROGRESS" \
+    --build-arg MK_BUILDER_IMAGE \
     --build-arg MK_CONTAINER_WORKDIR \
     --build-arg MK_ENV_FILE_NAME \
     -f "$SCRIPT_DIR/Dockerfile" \
-    -t harvester-integration-test:latest \
+    -t harvester-integration-test:${MK_REPO_ID} \
     "$ROOT"
 
 docker run --rm -it \
     --privileged \
     --network host \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v harvester-integration-test-cache:${MK_CONTAINER_WORKDIR}/.cache/go-build \
+    -v harvester-integration-test-cache-${MK_REPO_ID}:${MK_CONTAINER_WORKDIR}/.cache/go-build \
     harvester-integration-test:latest \
     bash mk/test-integration/build

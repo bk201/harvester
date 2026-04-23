@@ -1,4 +1,5 @@
-FROM harvester-builder:local as builder
+ARG MK_BUILDER_IMAGE
+FROM ${MK_BUILDER_IMAGE} as builder
 
 ARG MK_CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
 WORKDIR ${MK_CONTAINER_WORKDIR}
@@ -17,6 +18,9 @@ COPY mk/test/build mk/test/build
 
 FROM builder as run
 
-RUN --mount=type=cache,target=/go/pkg/mod,id=harvester-go-mod \
-    --mount=type=cache,target=${MK_CONTAINER_WORKDIR}/.cache/go-build,id=harvester-go-build \
+ARG MK_CONTAINER_WORKDIR
+ARG MK_REPO_ID
+
+RUN --mount=type=cache,target=/go/pkg/mod,id=harvester-go-mod-${MK_REPO_ID} \
+    --mount=type=cache,target=${MK_CONTAINER_WORKDIR}/.cache/go-build,id=harvester-go-build-${MK_REPO_ID} \
     bash mk/test/build

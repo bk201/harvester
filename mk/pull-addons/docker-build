@@ -29,6 +29,7 @@ echo "Pulling addons into image $MK_ADDONS_IMAGE..."
 docker build \
     --no-cache \
     --progress="$MK_DOCKER_PROGRESS" \
+    --build-arg MK_BUILDER_IMAGE \
     -f "$SCRIPT_DIR/Dockerfile" \
     -t "$MK_ADDONS_IMAGE" \
     "$SCRIPT_DIR"

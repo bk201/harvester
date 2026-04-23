@@ -1,4 +1,5 @@
-FROM harvester-bundle-builder:local as builder
+ARG MK_BUNDLE_BUILDER_IMAGE
+FROM ${MK_BUNDLE_BUILDER_IMAGE} as builder
 
 ARG MK_CONTAINER_WORKDIR=/workspace
 WORKDIR ${MK_CONTAINER_WORKDIR}
