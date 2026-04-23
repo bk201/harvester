@@ -7,7 +7,7 @@ ROOT="$2"
 BIN_IMAGE="$3"
 INSTALLER_BIN_IMAGE="$4"
 CONTAINER_WORKDIR="$5"
-DOCKER_PROGRESS="${6:-auto}"
+DOCKER_PROGRESS="${DOCKER_PROGRESS:-auto}"
 
 # Source version variables
 . "$ENV_FILE"

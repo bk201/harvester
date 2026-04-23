@@ -15,6 +15,7 @@ CONTAINER_WORKDIR := /go/src/github.com/harvester/harvester
 ENV_FILE          := $(ROOT)/harvester-env.sh
 HOST_ARCH         := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 DOCKER_PROGRESS   ?= plain
+export DOCKER_PROGRESS
 
 .PHONY: builder-image pull-addons harvester-binaries build build-installer bundle-builder-image build-bundle package package-harvester package-harvester-webhook package-harvester-upgrade ci clean
 
@@ -40,12 +41,12 @@ builder-image:
 # ---- Pull addons into local Docker image ----
 pull-addons: builder-image
 	@printf "$(BOLD)$(CYAN)===> Pulling addons$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(ADDONS_IMAGE) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build $(ADDONS_IMAGE)
 
 # ---- Compile harvester binaries ----
 harvester-binaries: builder-image $(ENV_FILE) | $(ROOT)/bin
 	@printf "$(BOLD)$(CYAN)===> Building harvester binaries (harvester, harvester-webhook, upgrade-helper)$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build $(BIN_IMAGE) $(CONTAINER_WORKDIR)
 
 # ---- Build ----
 build: harvester-binaries
@@ -54,22 +55,22 @@ build: harvester-binaries
 # ---- Validate ----
 validate: builder-image
 	@printf "$(BOLD)$(CYAN)===> Validating harvester GO sources$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build
 
 # ---- Test ----
 test: builder-image
 	@printf "$(BOLD)$(CYAN)===> Running harvester unit tests$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build
 
 # ---- Test integration ----
 test-integration: builder-image $(ENV_FILE)
 	@printf "$(BOLD)$(CYAN)===> Running harvester integration tests$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build $(CONTAINER_WORKDIR)
 
 # ---- Compile harvester-installer binary ----
 build-installer: builder-image $(ENV_FILE) pull-addons | $(ROOT)/bin
 	@printf "$(BOLD)$(CYAN)===> Building harvester-installer binary$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(INSTALLER_BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build $(INSTALLER_BIN_IMAGE) $(CONTAINER_WORKDIR)
 
 # ---- Bundle builder image (extends harvester-builder with addons) ----
 bundle-builder-image: builder-image pull-addons
@@ -83,7 +84,7 @@ bundle-builder-image: builder-image pull-addons
 # ---- Build offline bundle (charts + images) ----
 build-bundle: bundle-builder-image package $(ENV_FILE)
 	@printf "$(BOLD)$(CYAN)===> Building offline bundle (requires network access)$(RESET)\n"
-	@bash $(MK_DIR)/$@/docker-build $(BUNDLE_IMAGE) $(ENV_FILE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/$@/docker-build $(BUNDLE_IMAGE) $(ENV_FILE) $(CONTAINER_WORKDIR)
 
 # ---- Package all images ----
 package: package-harvester package-harvester-webhook package-harvester-upgrade
@@ -91,17 +92,17 @@ package: package-harvester package-harvester-webhook package-harvester-upgrade
 # ---- Package harvester image ----
 package-harvester: harvester-binaries $(ENV_FILE)
 	@printf "$(BOLD)$(GREEN)===> Packaging harvester image$(RESET)\n"
-	@bash $(MK_DIR)/package-harvester/package $(ENV_FILE) $(ROOT) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/package-harvester/package $(ENV_FILE) $(ROOT)
 
 # ---- Package harvester-webhook image ----
 package-harvester-webhook: harvester-binaries $(ENV_FILE)
 	@printf "$(BOLD)$(GREEN)===> Packaging harvester-webhook image$(RESET)\n"
-	@bash $(MK_DIR)/package-harvester-webhook/package $(ENV_FILE) $(ROOT) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/package-harvester-webhook/package $(ENV_FILE) $(ROOT)
 
 # ---- Package harvester-upgrade image ----
 package-harvester-upgrade: harvester-binaries build-installer $(ENV_FILE)
 	@printf "$(BOLD)$(GREEN)===> Packaging harvester-upgrade image$(RESET)\n"
-	@bash $(MK_DIR)/package-harvester-upgrade/package $(ENV_FILE) $(ROOT) $(BIN_IMAGE) $(INSTALLER_BIN_IMAGE) $(CONTAINER_WORKDIR) $(DOCKER_PROGRESS)
+	@bash $(MK_DIR)/package-harvester-upgrade/package $(ENV_FILE) $(ROOT) $(BIN_IMAGE) $(INSTALLER_BIN_IMAGE) $(CONTAINER_WORKDIR)
 
 # ---- Clean ----
 clean:

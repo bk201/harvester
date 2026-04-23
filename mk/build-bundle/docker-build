@@ -4,7 +4,7 @@ set -e
 BUNDLE_IMAGE="$1"
 ENV_FILE="$2"
 CONTAINER_WORKDIR="$3"
-DOCKER_PROGRESS="${4:-auto}"
+DOCKER_PROGRESS="${DOCKER_PROGRESS:-auto}"
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)

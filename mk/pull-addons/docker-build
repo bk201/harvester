@@ -2,7 +2,7 @@
 set -e
 
 ADDONS_IMAGE="$1"
-DOCKER_PROGRESS="${2:-auto}"
+DOCKER_PROGRESS="${DOCKER_PROGRESS:-auto}"
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 STAMP_FILE="$SCRIPT_DIR/../.addons.stamp"

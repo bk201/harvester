@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-DOCKER_PROGRESS="${1:-auto}"
+DOCKER_PROGRESS="${DOCKER_PROGRESS:-auto}"
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)

@@ -4,7 +4,7 @@ set -e
 # Arguments passed from Makefile
 ENV_FILE="$1"
 ROOT="$2"
-DOCKER_PROGRESS="${3:-auto}"
+DOCKER_PROGRESS="${DOCKER_PROGRESS:-auto}"
 
 # Source version variables
 . "$ENV_FILE"
