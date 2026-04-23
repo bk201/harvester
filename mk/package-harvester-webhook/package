@@ -13,11 +13,11 @@ echo "  Push tag: $HARVESTER_REPO/harvester-webhook:$HARVESTER_IMAGE_PUSH_TAG"
 echo "Copying binary to package directory..."
 cp "$MK_ROOT/bin/harvester-webhook" "$MK_ROOT/package/harvester-webhook"
 
-# Build final image from mk/package-harvester-webhook/Dockerfile
-echo "Building final image from mk/package-harvester-webhook/Dockerfile..."
+# Build final image
+echo "Building final image..."
 docker build \
     --progress="$MK_DOCKER_PROGRESS" \
-    -f "$(dirname "${BASH_SOURCE[0]}")/Dockerfile" \
+    -f "$MK_ROOT/package/Dockerfile.webhook" \
     -t "$HARVESTER_REPO/harvester-webhook:$HARVESTER_TAG" \
     "$MK_ROOT/package/"
 

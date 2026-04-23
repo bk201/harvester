@@ -13,11 +13,11 @@ echo "  Push tag: $HARVESTER_REPO/harvester:$HARVESTER_IMAGE_PUSH_TAG"
 echo "Copying binary to package directory..."
 cp "$MK_ROOT/bin/harvester" "$MK_ROOT/package/harvester"
 
-# Build final image from mk/package-harvester/Dockerfile
-echo "Building final image from mk/package-harvester/Dockerfile..."
+# Build final image
+echo "Building final image..."
 docker build \
     --progress="$MK_DOCKER_PROGRESS" \
-    -f "$(dirname "${BASH_SOURCE[0]}")/Dockerfile" \
+    -f "$MK_ROOT/package/Dockerfile" \
     -t "$HARVESTER_REPO/harvester:$HARVESTER_TAG" \
     "$MK_ROOT/package/"
 

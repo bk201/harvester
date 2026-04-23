@@ -44,8 +44,7 @@ RUN mkdir -p /usr/share/harvester/harvester && \
     cd /var/lib/harvester/harvester
 
 COPY entrypoint.sh harvester /usr/bin/
-RUN chmod +x /usr/bin/entrypoint.sh /usr/bin/harvester
-
+RUN chmod +x /usr/bin/entrypoint.sh
 
 VOLUME /var/lib/harvester/harvester
 ENTRYPOINT ["entrypoint.sh"]
