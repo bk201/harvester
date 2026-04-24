@@ -1,0 +1,25 @@
+#!/bin/bash
+set -e
+
+# . ./mk-env.sh
+
+HARVESTER_DIR="/go/src/github.com/harvester/harvester"
+INSTALLER_DIR="/go/src/github.com/harvester/harvester-installer"
+
+echo "Cloning harvester-installer ${MK_HARVESTER_INSTALLER_REF}..."
+git clone \
+    --branch "${MK_HARVESTER_INSTALLER_REF}" \
+    --single-branch \
+    --depth 1 \
+    "${MK_HARVESTER_INSTALLER_REPO}" \
+    "${INSTALLER_DIR}"
+
+
+cd "${INSTALLER_DIR}/scripts"
+git status
+./ci
+
+cd ..
+mkdir -p "${HARVESTER_DIR}/dist/artifacts"
+cp dist/artifacts/* "${HARVESTER_DIR}/dist/artifacts/"
+cp -r dist/harvester-cluster-repo "${HARVESTER_DIR}/dist/"

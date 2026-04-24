@@ -18,17 +18,23 @@ MK_BUNDLE_IMAGE          := harvester-bundle:$(MK_REPO_ID)
 MK_CONTAINER_WORKDIR     := /go/src/github.com/harvester/harvester
 MK_ENV_FILE              := $(ROOT)/mk-env.sh
 MK_ENV_FILE_NAME         := $(notdir $(MK_ENV_FILE))
-MK_DOCKER_PROGRESS       ?= auto
-MK_DOCKER_BUILD_NO_CACHE ?= false
-MK_ROOT                  := $(ROOT)
+MK_DOCKER_PROGRESS              ?= auto
+MK_DOCKER_BUILD_NO_CACHE        ?= false
+MK_ROOT                         := $(ROOT)
+MK_HARVESTER_INSTALLER_REPO     ?= http://192.168.2.22:3000/kiefer/harvester-installer.git
+MK_HARVESTER_INSTALLER_REF      ?= wip-buildx
+MK_RKE2_IMAGE_REPO              ?=
+MK_USE_LOCAL_IMAGES             ?=
+MK_REPO                         ?= rancher
 
 export MK_DOCKER_PROGRESS MK_CONTAINER_WORKDIR MK_BUILDER_IMAGE MK_BIN_IMAGE MK_INSTALLER_BIN_IMAGE MK_REPO_ID
 export MK_ADDONS_IMAGE MK_BUNDLE_BUILDER_IMAGE MK_BUNDLE_IMAGE MK_ENV_FILE MK_ENV_FILE_NAME MK_DOCKER_BUILD_NO_CACHE MK_ROOT
+export MK_HARVESTER_INSTALLER_REPO MK_HARVESTER_INSTALLER_REF MK_RKE2_IMAGE_REPO MK_USE_LOCAL_IMAGES MK_ISO_REPO
 
 HOST_ARCH              := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 
-.PHONY: $(MK_ENV_FILE) builder-image pull-addons harvester-binaries build build-installer bundle-builder-image \
-	build-bundle package package-harvester package-harvester-webhook package-harvester-upgrade ci \
+.PHONY: env $(MK_ENV_FILE) builder-image pull-addons harvester-binaries build build-installer bundle-builder-image \
+	build-bundle build-iso package package-harvester package-harvester-webhook package-harvester-upgrade ci \
 	arm clean default generate-addons validate-ci generate-manifest generate-openapi
 
 # ---- Directories ----
@@ -40,6 +46,8 @@ $(MK_ENV_FILE):
 	@printf "$(BOLD)$(CYAN)===> Generating version metadata$(RESET)\n"
 	@bash $(MK_DIR)/version/generate $(MK_ENV_FILE)
 
+env: $(MK_ENV_FILE)
+	
 # ---- Builder image ----
 builder-image:
 	@printf "$(BOLD)$(CYAN)===> Building builder image$(RESET)\n"
@@ -98,6 +106,11 @@ bundle-builder-image: builder-image pull-addons
 	    -t $(MK_BUNDLE_BUILDER_IMAGE) \
 	    $(MK_DIR)
 
+# ---- Build ISO ----
+build-iso: builder-image $(MK_ENV_FILE)
+	@printf "$(BOLD)$(CYAN)===> Building Harvester ISO$(RESET)\n"
+	@bash $(MK_DIR)/$@/docker-build
+
 # ---- Build offline bundle (charts + images) ----
 build-bundle: bundle-builder-image package $(MK_ENV_FILE)
 	@printf "$(BOLD)$(CYAN)===> Building offline bundle (requires network access)$(RESET)\n"
@@ -144,13 +157,14 @@ clean:
 	@rm -f $(ROOT)/package/upgrade/upgrade-helper $(ROOT)/package/upgrade/harvester-installer
 	@rm -rf $(ROOT)/package/upgrade/addons
 	@rm -rf $(ROOT)/dist/pull-addons
+	@rm -rf $(ROOT)/dist/artifacts $(ROOT)/dist/harvester-cluster-repo
 	@rm -f $(MK_DIR)/.addons.stamp
 
 
 clean-all: clean
 	@printf "$(BOLD)$(YELLOW)===> Removing builder images images$(RESET)\n"
 	@docker rmi -f $(MK_BUILDER_IMAGE) $(MK_BIN_IMAGE) $(MK_INSTALLER_BIN_IMAGE) $(MK_ADDONS_IMAGE) $(MK_BUNDLE_BUILDER_IMAGE) $(MK_BUNDLE_IMAGE) || true
-	@docker rmi -f harvester-generate-manifest:$(MK_REPO_ID) harvester-generate-openapi:$(MK_REPO_ID) || true
+	@docker rmi -f harvester-generate-manifest:$(MK_REPO_ID) harvester-generate-openapi:$(MK_REPO_ID) harvester-iso-builder:$(MK_REPO_ID) || true
 
 .DEFAULT_GOAL := default
 

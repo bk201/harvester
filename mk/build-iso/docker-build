@@ -1,0 +1,44 @@
+#!/bin/bash
+set -e
+
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "$SCRIPT_DIR/../lib.sh"
+
+IMAGE="harvester-iso-builder:${MK_REPO_ID}"
+CONTAINER_NAME="harvester-iso-builder-run-${MK_REPO_ID}"
+
+set_mk_docker_build_args
+
+docker build "${MK_DOCKER_BUILD_ARGS[@]}" \
+    -f "$SCRIPT_DIR/Dockerfile" \
+    -t "$IMAGE" \
+    "$MK_ROOT"
+
+docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+cleanup() { docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+
+EXTRA_ENV=()
+[ -n "${MK_RKE2_IMAGE_REPO}" ] && EXTRA_ENV+=(-e "RKE2_IMAGE_REPO=${MK_RKE2_IMAGE_REPO}")
+[ -n "${MK_USE_LOCAL_IMAGES}" ] && EXTRA_ENV+=(-e "USE_LOCAL_IMAGES=${MK_USE_LOCAL_IMAGES}")
+
+EXTRA_ENV+=(-e "REPO=${MK_REPO}")
+
+set -x
+docker run --init \
+    --name "$CONTAINER_NAME" \
+    --privileged \
+    --network host \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -e MK_HARVESTER_INSTALLER_REPO \
+    -e MK_HARVESTER_INSTALLER_REF \
+    "${EXTRA_ENV[@]}" \
+    "$IMAGE" \
+    bash mk/build-iso/build
+
+mkdir -p "$MK_ROOT/dist/artifacts"
+docker cp "$CONTAINER_NAME:${MK_CONTAINER_WORKDIR}/dist/artifacts/." "$MK_ROOT/dist/artifacts/"
+docker cp "$CONTAINER_NAME:${MK_CONTAINER_WORKDIR}/dist/harvester-cluster-repo" "$MK_ROOT/dist/"
+
+trap - EXIT
+docker rm "$CONTAINER_NAME" >/dev/null
