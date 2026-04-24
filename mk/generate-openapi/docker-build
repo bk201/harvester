@@ -1,0 +1,26 @@
+#!/bin/bash
+set -e
+
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+ROOT="$(cd "${SCRIPT_DIR}/../.."; pwd)"
+
+IMAGE="harvester-generate-openapi:${MK_REPO_ID}"
+WORKDIR="${MK_CONTAINER_WORKDIR}"
+
+docker build \
+    --progress="${MK_DOCKER_PROGRESS}" \
+    --build-arg MK_BUILDER_IMAGE \
+    --build-arg MK_CONTAINER_WORKDIR \
+    --build-arg MK_REPO_ID \
+    -f "${SCRIPT_DIR}/Dockerfile" \
+    -t "${IMAGE}" \
+    "${ROOT}"
+
+echo "Extracting generated OpenAPI artifacts..."
+id=$(docker create "${IMAGE}")
+cleanup() { docker rm -f "${id}" >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+
+docker cp "${id}:${WORKDIR}/api/openapi-spec/swagger.json" "${ROOT}/api/openapi-spec/swagger.json"
+docker cp "${id}:${WORKDIR}/scripts/known-api-rule-violations.txt" \
+    "${ROOT}/scripts/known-api-rule-violations.txt"

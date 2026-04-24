@@ -1,0 +1,25 @@
+#!/bin/bash
+set -e
+
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+ROOT="$(cd "${SCRIPT_DIR}/../.."; pwd)"
+
+IMAGE="harvester-generate-manifest:${MK_REPO_ID}"
+OUT_DIR="${ROOT}/deploy/charts/harvester-crd/templates"
+CONTAINER_OUT_DIR="${MK_CONTAINER_WORKDIR}/deploy/charts/harvester-crd/templates"
+
+docker build \
+    --progress="${MK_DOCKER_PROGRESS}" \
+    --build-arg MK_BUILDER_IMAGE \
+    --build-arg MK_CONTAINER_WORKDIR \
+    -f "${SCRIPT_DIR}/Dockerfile" \
+    -t "${IMAGE}" \
+    "${ROOT}"
+
+echo "Extracting generated CRDs..."
+id=$(docker create "${IMAGE}")
+cleanup() { docker rm -f "${id}" >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+
+rm -f "${OUT_DIR}"/harvesterhci.io*.yaml
+docker cp "${id}:${CONTAINER_OUT_DIR}/." "${OUT_DIR}/"

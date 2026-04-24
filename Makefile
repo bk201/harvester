@@ -28,7 +28,7 @@ HOST_ARCH              := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm6
 
 .PHONY: $(MK_ENV_FILE) builder-image pull-addons harvester-binaries build build-installer bundle-builder-image \
 	build-bundle package package-harvester package-harvester-webhook package-harvester-upgrade ci \
-	arm clean default generate-addons validate-ci
+	arm clean default generate-addons validate-ci generate-manifest generate-openapi
 
 # ---- Directories ----
 $(ROOT)/bin:
@@ -120,6 +120,16 @@ package-harvester-upgrade: harvester-binaries build-installer $(MK_ENV_FILE)
 # ---- Package all images ----
 package: package-harvester package-harvester-webhook package-harvester-upgrade
 	
+# ---- Generate CRD manifests ----
+generate-manifest: builder-image
+	@printf "$(BOLD)$(CYAN)===> Generating CRD manifests$(RESET)\n"
+	@bash $(MK_DIR)/$@/docker-build
+
+# ---- Generate OpenAPI/Swagger spec ----
+generate-openapi: builder-image
+	@printf "$(BOLD)$(CYAN)===> Generating OpenAPI/Swagger spec$(RESET)\n"
+	@bash $(MK_DIR)/$@/docker-build
+
 # ---- Generate Add-ons manifests ----
 generate-addons:
 	@printf "$(BOLD)$(CYAN)===> Building add-ons manifests$(RESET)\n"
@@ -139,6 +149,7 @@ clean:
 clean-all: clean
 	@printf "$(BOLD)$(YELLOW)===> Removing builder images images$(RESET)\n"
 	@docker rmi -f $(MK_BUILDER_IMAGE) $(MK_BIN_IMAGE) $(MK_INSTALLER_BIN_IMAGE) $(MK_ADDONS_IMAGE) $(MK_BUNDLE_BUILDER_IMAGE) $(MK_BUNDLE_IMAGE) || true
+	@docker rmi -f harvester-generate-manifest:$(MK_REPO_ID) harvester-generate-openapi:$(MK_REPO_ID) || true
 
 .DEFAULT_GOAL := default
 
