@@ -1,5 +1,7 @@
+# syntax=docker/dockerfile:1
+# check=skip=InvalidDefaultArgInFrom
 ARG MK_BUILDER_IMAGE
-FROM ${MK_BUILDER_IMAGE} as builder
+FROM ${MK_BUILDER_IMAGE} AS builder
 
 ARG MK_CONTAINER_WORKDIR=/go/src/github.com/harvester/harvester
 WORKDIR ${MK_CONTAINER_WORKDIR}
@@ -18,7 +20,7 @@ COPY tests/ tests/
 COPY .golangci.yaml .golangci.yaml
 
 
-FROM builder as run
+FROM builder AS run
 
 ARG MK_CONTAINER_WORKDIR
 ARG MK_REPO_ID

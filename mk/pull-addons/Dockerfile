@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+# check=skip=InvalidDefaultArgInFrom
 ARG MK_BUILDER_IMAGE
 FROM ${MK_BUILDER_IMAGE}
 
