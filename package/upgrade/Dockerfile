@@ -1,6 +1,6 @@
 ARG HARVESTER_INSTALLER_REF=master-head
 
-FROM registry.opensuse.org/isv/rancher/harvester/os/dev/main/baseos:latest as baseos
+FROM registry.opensuse.org/isv/rancher/harvester/os/dev/main/baseos:latest AS baseos
 FROM registry.suse.com/bci/bci-base:16.0
 
 ARG ARCH=amd64
