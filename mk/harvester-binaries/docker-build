@@ -4,8 +4,6 @@ set -e
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source "$SCRIPT_DIR/../lib.sh"
 
-set -x
-
 set_mk_docker_build_args
 
 docker build "${MK_DOCKER_BUILD_ARGS[@]}" \

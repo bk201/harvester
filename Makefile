@@ -9,20 +9,21 @@ RESET             := \033[0m
 # User might have several repos in a host. Distinguish each by using the abs path of the repo
 MK_REPO_ID                := $(shell echo -n "$(ROOT)$$(cat /etc/machine-id 2>/dev/null)" | sha256sum | cut -c1-8)
 
-MK_BUILDER_IMAGE       := harvester-builder:$(MK_REPO_ID)
-MK_BIN_IMAGE           := harvester-bin:$(MK_REPO_ID)
-MK_INSTALLER_BIN_IMAGE := harvester-installer-bin:$(MK_REPO_ID)
-MK_ADDONS_IMAGE        := harvester-addons:$(MK_REPO_ID)
-MK_BUNDLE_BUILDER_IMAGE := harvester-bundle-builder:$(MK_REPO_ID)
-MK_BUNDLE_IMAGE        := harvester-bundle:$(MK_REPO_ID)
-MK_CONTAINER_WORKDIR   := /go/src/github.com/harvester/harvester
-MK_ENV_FILE            := $(ROOT)/mk-env.sh
-MK_ENV_FILE_NAME       := $(notdir $(MK_ENV_FILE))
-MK_DOCKER_PROGRESS     ?= auto
-MK_ROOT                := $(ROOT)
+MK_BUILDER_IMAGE         := harvester-builder:$(MK_REPO_ID)
+MK_BIN_IMAGE             := harvester-bin:$(MK_REPO_ID)
+MK_INSTALLER_BIN_IMAGE   := harvester-installer-bin:$(MK_REPO_ID)
+MK_ADDONS_IMAGE          := harvester-addons:$(MK_REPO_ID)
+MK_BUNDLE_BUILDER_IMAGE  := harvester-bundle-builder:$(MK_REPO_ID)
+MK_BUNDLE_IMAGE          := harvester-bundle:$(MK_REPO_ID)
+MK_CONTAINER_WORKDIR     := /go/src/github.com/harvester/harvester
+MK_ENV_FILE              := $(ROOT)/mk-env.sh
+MK_ENV_FILE_NAME         := $(notdir $(MK_ENV_FILE))
+MK_DOCKER_PROGRESS       ?= auto
+MK_DOCKER_BUILD_NO_CACHE ?= false
+MK_ROOT                  := $(ROOT)
 
 export MK_DOCKER_PROGRESS MK_CONTAINER_WORKDIR MK_BUILDER_IMAGE MK_BIN_IMAGE MK_INSTALLER_BIN_IMAGE MK_REPO_ID
-export MK_ADDONS_IMAGE MK_BUNDLE_BUILDER_IMAGE MK_BUNDLE_IMAGE MK_ENV_FILE MK_ENV_FILE_NAME MK_ROOT
+export MK_ADDONS_IMAGE MK_BUNDLE_BUILDER_IMAGE MK_BUNDLE_IMAGE MK_ENV_FILE MK_ENV_FILE_NAME MK_DOCKER_BUILD_NO_CACHE MK_ROOT
 
 HOST_ARCH              := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 

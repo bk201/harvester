@@ -1,6 +1,22 @@
 #!/bin/bash
 # Shared library functions for mk/ scripts
 
+# Set MK_DOCKER_BUILD_ARGS to the standard docker build flags.
+# Usage: set_mk_docker_build_args; docker build "${MK_DOCKER_BUILD_ARGS[@]}" ...
+set_mk_docker_build_args() {
+    MK_DOCKER_BUILD_ARGS=(
+        --progress="${MK_DOCKER_PROGRESS}"
+        --build-arg MK_REPO_ID
+        --build-arg MK_BUILDER_IMAGE
+        --build-arg MK_CONTAINER_WORKDIR
+        --build-arg MK_ENV_FILE_NAME
+    )
+    
+    if [ "${MK_DOCKER_BUILD_NO_CACHE}" = "true" ]; then
+        MK_DOCKER_BUILD_ARGS+=("--no-cache")
+    fi
+}
+
 # Extract a file from a Docker image
 extract_binary() {
     local image="$1"
@@ -20,18 +36,6 @@ extract_binary() {
     docker rm "$container_name" >/dev/null
 
     trap - EXIT
-}
-
-# Set MK_DOCKER_BUILD_ARGS to the standard docker build flags.
-# Usage: set_mk_docker_build_args; docker build "${MK_DOCKER_BUILD_ARGS[@]}" ...
-set_mk_docker_build_args() {
-    MK_DOCKER_BUILD_ARGS=(
-        --progress="${MK_DOCKER_PROGRESS}"
-        --build-arg MK_REPO_ID
-        --build-arg MK_BUILDER_IMAGE
-        --build-arg MK_CONTAINER_WORKDIR
-        --build-arg MK_ENV_FILE_NAME
-    )
 }
 
 # Extract a directory from a Docker image
