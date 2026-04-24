@@ -18,5 +18,5 @@ docker run --rm -it \
     --network host \
     -v /var/run/docker.sock:/var/run/docker.sock \
     -v harvester-integration-test-cache-${MK_REPO_ID}:${MK_CONTAINER_WORKDIR}/.cache/go-build \
-    harvester-integration-test:latest \
+    harvester-integration-test:${MK_REPO_ID} \
     bash mk/test-integration/build
