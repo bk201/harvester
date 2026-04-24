@@ -1,13 +1,11 @@
 #!/bin/bash
 set -e
 
-SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-ROOT="$(cd "${SCRIPT_DIR}/../.."; pwd)"
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source "$SCRIPT_DIR/../lib.sh"
 
-docker build \
-    --progress="${MK_DOCKER_PROGRESS}" \
-    --build-arg MK_BUILDER_IMAGE \
-    --build-arg MK_CONTAINER_WORKDIR \
-    --build-arg MK_REPO_ID \
-    -f "${SCRIPT_DIR}/Dockerfile" \
-    "${ROOT}"
+set_mk_docker_build_args
+
+docker build "${MK_DOCKER_BUILD_ARGS[@]}" \
+    -f "$SCRIPT_DIR/Dockerfile" \
+    "$MK_ROOT"

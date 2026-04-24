@@ -2,21 +2,18 @@
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
-
 source "$SCRIPT_DIR/../lib.sh"
 
-docker build \
-    --progress="$MK_DOCKER_PROGRESS" \
-    --build-arg MK_REPO_ID \
-    --build-arg MK_BUILDER_IMAGE \
-    --build-arg MK_CONTAINER_WORKDIR \
-    --build-arg MK_ENV_FILE_NAME \
+set -x
+
+set_mk_docker_build_args
+
+docker build "${MK_DOCKER_BUILD_ARGS[@]}" \
     -f "$SCRIPT_DIR/Dockerfile" \
     -t "$MK_BIN_IMAGE" \
-    "$ROOT"
+    "$MK_ROOT"
 
 # Extract binaries from image
-extract_binary "$MK_BIN_IMAGE" "$MK_CONTAINER_WORKDIR/bin/harvester" "$ROOT/bin/harvester" "harvester-bin-extract"
-extract_binary "$MK_BIN_IMAGE" "$MK_CONTAINER_WORKDIR/bin/harvester-webhook" "$ROOT/bin/harvester-webhook" "harvester-bin-extract"
-extract_binary "$MK_BIN_IMAGE" "$MK_CONTAINER_WORKDIR/bin/upgrade-helper" "$ROOT/bin/upgrade-helper" "harvester-bin-extract"
+extract_binary "$MK_BIN_IMAGE" "$MK_CONTAINER_WORKDIR/bin/harvester" "$MK_ROOT/bin/harvester" "harvester-bin-extract"
+extract_binary "$MK_BIN_IMAGE" "$MK_CONTAINER_WORKDIR/bin/harvester-webhook" "$MK_ROOT/bin/harvester-webhook" "harvester-bin-extract"
+extract_binary "$MK_BIN_IMAGE" "$MK_CONTAINER_WORKDIR/bin/upgrade-helper" "$MK_ROOT/bin/upgrade-helper" "harvester-bin-extract"

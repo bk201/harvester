@@ -25,6 +25,7 @@ FROM builder AS run
 
 ARG MK_CONTAINER_WORKDIR
 ARG MK_REPO_ID
+ARG MK_ENV_FILE_NAME
 
 # Init a new git repo for copied files inside the container, the test script checks if files are
 # modified after running go generate

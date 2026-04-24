@@ -22,6 +22,18 @@ extract_binary() {
     trap - EXIT
 }
 
+# Set MK_DOCKER_BUILD_ARGS to the standard docker build flags.
+# Usage: set_mk_docker_build_args; docker build "${MK_DOCKER_BUILD_ARGS[@]}" ...
+set_mk_docker_build_args() {
+    MK_DOCKER_BUILD_ARGS=(
+        --progress="${MK_DOCKER_PROGRESS}"
+        --build-arg MK_REPO_ID
+        --build-arg MK_BUILDER_IMAGE
+        --build-arg MK_CONTAINER_WORKDIR
+        --build-arg MK_ENV_FILE_NAME
+    )
+}
+
 # Extract a directory from a Docker image
 # extract /abc to /path/to/save, will copy abc directory to /path/to/save/
 extract_directory() {

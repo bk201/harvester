@@ -22,6 +22,7 @@ FROM builder AS run
 
 ARG MK_CONTAINER_WORKDIR
 ARG MK_REPO_ID
+ARG MK_ENV_FILE_NAME
 
 RUN --mount=type=cache,target=/go/pkg/mod,id=harvester-go-mod-${MK_REPO_ID} \
     --mount=type=cache,target=${MK_CONTAINER_WORKDIR}/.cache/go-build,id=harvester-go-build-${MK_REPO_ID} \

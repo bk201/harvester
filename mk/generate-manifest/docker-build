@@ -1,11 +1,10 @@
 #!/bin/bash
 set -e
 
-SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-ROOT="$(cd "${SCRIPT_DIR}/../.."; pwd)"
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 IMAGE="harvester-generate-manifest:${MK_REPO_ID}"
-OUT_DIR="${ROOT}/deploy/charts/harvester-crd/templates"
+OUT_DIR="${MK_ROOT}/deploy/charts/harvester-crd/templates"
 CONTAINER_OUT_DIR="${MK_CONTAINER_WORKDIR}/deploy/charts/harvester-crd/templates"
 
 docker build \
@@ -14,7 +13,7 @@ docker build \
     --build-arg MK_CONTAINER_WORKDIR \
     -f "${SCRIPT_DIR}/Dockerfile" \
     -t "${IMAGE}" \
-    "${ROOT}"
+    "${MK_ROOT}"
 
 echo "Extracting generated CRDs..."
 id=$(docker create "${IMAGE}")

@@ -2,8 +2,6 @@
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
-
 docker build \
     --progress="$MK_DOCKER_PROGRESS" \
     --build-arg MK_BUILDER_IMAGE \
@@ -11,7 +9,7 @@ docker build \
     --build-arg MK_ENV_FILE_NAME \
     -f "$SCRIPT_DIR/Dockerfile" \
     -t harvester-integration-test:${MK_REPO_ID} \
-    "$ROOT"
+    "$MK_ROOT"
 
 docker run --rm -it \
     --privileged \

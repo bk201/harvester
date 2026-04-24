@@ -19,6 +19,7 @@ FROM builder AS run
 
 ARG MK_CONTAINER_WORKDIR
 ARG MK_REPO_ID
+ARG MK_ENV_FILE_NAME
 
 # Init a git repo so scripts/generate-openapi can restore vendor doc.go files via git checkout
 RUN git config --global user.email "ci@example.com" && \

@@ -2,8 +2,6 @@
 set -e
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
-
 source "$MK_ENV_FILE"
 
 echo "Building offline bundle for Harvester ${HARVESTER_VERSION}..."
@@ -15,7 +13,7 @@ docker build \
     --build-arg MK_ENV_FILE_NAME \
     -f "$SCRIPT_DIR/Dockerfile" \
     -t "$MK_BUNDLE_IMAGE" \
-    "$ROOT"
+    "$MK_ROOT"
 
 echo "Bundle image created: $MK_BUNDLE_IMAGE"
 echo "  Bundle path (in image): ${MK_CONTAINER_WORKDIR}/installer/package/harvester-os/iso/bundle/"
