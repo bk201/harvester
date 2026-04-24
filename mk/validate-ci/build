@@ -1,0 +1,15 @@
+#!/bin/bash
+set -e
+
+go generate
+go mod tidy
+
+echo "Running dirty check..."
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "Git is dirty after go generate + go mod tidy — commit the generated files"
+    git status
+    git diff
+    exit 1
+fi
+
+echo "validate-ci passed"

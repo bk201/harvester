@@ -28,7 +28,7 @@ HOST_ARCH              := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm6
 
 .PHONY: $(MK_ENV_FILE) builder-image pull-addons harvester-binaries build build-installer bundle-builder-image \
 	build-bundle package package-harvester package-harvester-webhook package-harvester-upgrade ci \
-	arm clean default generate-addons
+	arm clean default generate-addons validate-ci
 
 # ---- Directories ----
 $(ROOT)/bin:
@@ -66,6 +66,11 @@ build: harvester-binaries
 # ---- Validate ----
 validate: builder-image
 	@printf "$(BOLD)$(CYAN)===> Validating harvester GO sources$(RESET)\n"
+	@bash $(MK_DIR)/$@/docker-build
+
+# ---- Validate CI (dirty check after go generate + go mod tidy) ----
+validate-ci: builder-image
+	@printf "$(BOLD)$(CYAN)===> Validating CI environment (dirty check)$(RESET)\n"
 	@bash $(MK_DIR)/$@/docker-build
 
 # ---- Test ----
@@ -141,4 +146,5 @@ default: build test package
 
 arm: build package
 
-ci: validate build test package-harvester-webhook package-harvester-upgrade test-integration package-harvester
+ci: validate validate-ci build test package-harvester-webhook package-harvester-upgrade \
+	test-integration package-harvester

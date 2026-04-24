@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+ROOT="$(cd "${SCRIPT_DIR}/../.."; pwd)"
+
+docker build \
+    --progress="${MK_DOCKER_PROGRESS}" \
+    --build-arg MK_BUILDER_IMAGE \
+    --build-arg MK_CONTAINER_WORKDIR \
+    --build-arg MK_REPO_ID \
+    -f "${SCRIPT_DIR}/Dockerfile" \
+    "${ROOT}"
