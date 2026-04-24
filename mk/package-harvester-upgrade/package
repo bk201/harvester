@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+. "$MK_ROOT/mk/lib.sh"
+
 # Source version variables
 . "$MK_ENV_FILE"
 
@@ -11,25 +14,12 @@ echo "  Push tag: $HARVESTER_REPO/harvester-upgrade:$HARVESTER_IMAGE_PUSH_TAG"
 
 UPGRADE_CTX="$MK_ROOT/package/upgrade"
 
-cleanup() {
-    rm -f "$UPGRADE_CTX/upgrade-helper" "$UPGRADE_CTX/harvester-installer"
-    rm -rf "$UPGRADE_CTX/addons"
-}
-trap cleanup EXIT
 
-# Extract artifacts from local build images into the build context
-echo "Extracting artifacts from build images..."
-id=$(docker create "$MK_BIN_IMAGE")
-docker cp "$id:$MK_CONTAINER_WORKDIR/bin/upgrade-helper" "$UPGRADE_CTX/upgrade-helper"
-docker rm "$id"
+cp "$MK_ROOT/bin/upgrade-helper" "$UPGRADE_CTX"
+cp "$MK_ROOT/bin/harvester-installer" "$UPGRADE_CTX"
 
-id=$(docker create "$MK_INSTALLER_BIN_IMAGE")
-docker cp "$id:$MK_CONTAINER_WORKDIR/bin/harvester-installer" "$UPGRADE_CTX/harvester-installer"
-docker rm "$id"
-
-id=$(docker create "$MK_ADDONS_IMAGE")
-docker cp "$id:/addons" "$UPGRADE_CTX/"
-docker rm "$id"
+rm -rf  "$UPGRADE_CTX/addons"
+cp -r "$MK_ROOT/dist/pull-addons/addons-manifests" "$UPGRADE_CTX/addons"
 
 # Build final image
 echo "Building final image..."

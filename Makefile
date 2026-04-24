@@ -28,7 +28,7 @@ HOST_ARCH              := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm6
 
 .PHONY: builder-image pull-addons harvester-binaries build build-installer bundle-builder-image \
 	build-bundle package package-harvester package-harvester-webhook package-harvester-upgrade ci \
-	arm clean default
+	arm clean default generate-addons
 
 # ---- Directories ----
 $(ROOT)/bin:
@@ -114,7 +114,12 @@ package-harvester-upgrade: harvester-binaries build-installer $(MK_ENV_FILE)
 
 # ---- Package all images ----
 package: package-harvester package-harvester-webhook package-harvester-upgrade
-
+	
+# ---- Generate Add-ons manifests ----
+generate-addons:
+	@printf "$(BOLD)$(CYAN)===> Building add-ons manifests$(RESET)\n"
+	@bash $(MK_DIR)/$@/build
+	
 # ---- Clean ----
 clean:
 	@printf "$(BOLD)$(YELLOW)===> Cleaning build artifacts$(RESET)\n"
@@ -122,6 +127,7 @@ clean:
 	@rm -f $(ROOT)/package/harvester $(ROOT)/package/harvester-webhook $(MK_ENV_FILE)
 	@rm -f $(ROOT)/package/upgrade/upgrade-helper $(ROOT)/package/upgrade/harvester-installer
 	@rm -rf $(ROOT)/package/upgrade/addons
+	@rm -rf $(ROOT)/dist/pull-addons
 	@rm -f $(MK_DIR)/.addons.stamp
 
 

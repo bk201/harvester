@@ -88,13 +88,13 @@ jobs:
           echo "arch=arm64" >> "$GITHUB_ENV"
         fi
 
-    - name: Download binaries
+    - name: Download binaries artifacts
       uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
       with:
         name: binaries_${{ matrix.arch }}_artifact
         path: ./bin/
 
-    - name: Download add-ons
+    - name: Download add-ons artifacts
       uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
       with:
           name: addons_${{ matrix.arch }}_artifact
@@ -109,10 +109,10 @@ jobs:
         cp -r ./bin/harvester ./package/
         cp -r ./bin/harvester-webhook ./package/
         cp -r ./bin/upgrade-helper ./package/upgrade/
-
-    - name: Copy add-ons folder to package-upgrade
+    
+    - name: Copy addons manifests to package/upgrade
       run: |
-        cp -r ./dist/pull-addons/addons ./package/upgrade/
+        cp -r ./dist/pull-addons/addons-manifests ./package/upgrade/addons
 
     - name: Read Secrets
       uses: rancher-eio/read-vault-secrets@d266f55186f80a893839f6e15662e67388e443e6 # main
@@ -153,9 +153,6 @@ jobs:
           ARCH=${{ env.arch }}
           VERSION=${{ inputs.build_version }}
   
-    - name: generate addon manifests
-      run: make generate-addons
-
     # rancher/harvester-upgrade image
     - name: docker-publish-harvester-upgrade
       uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5

@@ -45,5 +45,6 @@ if [ "$DO_ADDONS_PULL" = "true" ]; then
     echo "Addons image ready: $MK_ADDONS_IMAGE (${REMOTE_SHA:0:8})"
 fi
 
-mkdir -p "$ROOT/dist/pull-addons"
-extract_binary "$MK_ADDONS_IMAGE" "/addons" "$ROOT/dist/pull-addons/" "harvester-addon-extract"
+rm -rf "$ROOT/dist/pull-addons"
+extract_directory "$MK_ADDONS_IMAGE" "/addons" "$ROOT/dist/pull-addons/" "harvester-addons-extract"
+extract_directory "$MK_ADDONS_IMAGE" "/addons-manifests" "$ROOT/dist/pull-addons/" "harvester-addons-extract"
