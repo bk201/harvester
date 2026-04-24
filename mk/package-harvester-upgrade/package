@@ -1,38 +1,44 @@
 #!/bin/bash
 set -e
 
-SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
-. "$MK_ROOT/mk/lib.sh"
+. "${MK_ROOT}/mk/lib.sh"
 
 # Source version variables
-. "$MK_ENV_FILE"
+. "${MK_ENV_FILE}"
+
+IMAGE="${HARVESTER_REPO}/harvester-upgrade:${HARVESTER_TAG}"
+IMAGE_PUSH="${HARVESTER_REPO}/harvester-upgrade:${HARVESTER_IMAGE_PUSH_TAG}"
 
 echo "Packaging harvester-upgrade image..."
-echo "  Version: $HARVESTER_VERSION"
-echo "  Tag: $HARVESTER_REPO/harvester-upgrade:$HARVESTER_TAG"
-echo "  Push tag: $HARVESTER_REPO/harvester-upgrade:$HARVESTER_IMAGE_PUSH_TAG"
+echo "  Version: ${HARVESTER_VERSION}"
+echo "  Image: ${IMAGE}"
+echo "  Push Image: ${IMAGE_PUSH}"
 
-UPGRADE_CTX="$MK_ROOT/package/upgrade"
+UPGRADE_CTX="${MK_ROOT}/package/upgrade"
 
+cp "${MK_ROOT}/bin/upgrade-helper" "${UPGRADE_CTX}"
+cp "${MK_ROOT}/bin/harvester-installer" "${UPGRADE_CTX}"
 
-cp "$MK_ROOT/bin/upgrade-helper" "$UPGRADE_CTX"
-cp "$MK_ROOT/bin/harvester-installer" "$UPGRADE_CTX"
-
-rm -rf  "$UPGRADE_CTX/addons"
-cp -r "$MK_ROOT/dist/pull-addons/addons-manifests" "$UPGRADE_CTX/addons"
+rm -rf "${UPGRADE_CTX}/addons"
+cp -r "${MK_ROOT}/dist/pull-addons/addons-manifests" "${UPGRADE_CTX}/addons"
 
 # Build final image
 echo "Building final image..."
 docker build \
-    --progress="$MK_DOCKER_PROGRESS" \
-    -f "$MK_ROOT/package/upgrade/Dockerfile" \
-    -t "$HARVESTER_REPO/harvester-upgrade:$HARVESTER_TAG" \
-    "$UPGRADE_CTX/"
+    --progress="${MK_DOCKER_PROGRESS}" \
+    -f "${MK_ROOT}/package/upgrade/Dockerfile" \
+    -t "${IMAGE}" \
+    "${UPGRADE_CTX}/"
 
 # Tag with additional tag
-echo "Tagging image..."
-docker tag \
-    "$HARVESTER_REPO/harvester-upgrade:$HARVESTER_TAG" \
-    "$HARVESTER_REPO/harvester-upgrade:$HARVESTER_IMAGE_PUSH_TAG"
+echo "Creating ${IMAGE_PUSH} that refers to ${IMAGE}"
+docker tag "${IMAGE}" "${IMAGE_PUSH}"
 
-echo "Package complete: $HARVESTER_REPO/harvester-upgrade:$HARVESTER_TAG"
+DOCKER_CONFIG="${MK_ROOT}/.docker"
+if [[ -n ${PUSH} ]]; then
+  echo "Pushing to ${IMAGE_PUSH}"
+  docker --config="${DOCKER_CONFIG}" push "${IMAGE_PUSH}"
+  echo "Pushed ${IMAGE_PUSH}"
+fi
+
+echo "Package complete: ${IMAGE}"

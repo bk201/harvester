@@ -2,29 +2,37 @@
 set -e
 
 # Source version variables
-. "$MK_ENV_FILE"
+. "${MK_ENV_FILE}"
+
+IMAGE="${HARVESTER_REPO}/harvester-webhook:${HARVESTER_TAG}"
+IMAGE_PUSH="${HARVESTER_REPO}/harvester-webhook:${HARVESTER_IMAGE_PUSH_TAG}"
 
 echo "Packaging harvester-webhook image..."
-echo "  Version: $HARVESTER_VERSION"
-echo "  Tag: $HARVESTER_REPO/harvester-webhook:$HARVESTER_TAG"
-echo "  Push tag: $HARVESTER_REPO/harvester-webhook:$HARVESTER_IMAGE_PUSH_TAG"
+echo "  Version: ${HARVESTER_VERSION}"
+echo "  Image: ${IMAGE}"
+echo "  Push Image: ${IMAGE_PUSH}"
 
 # Copy binary to package directory
 echo "Copying binary to package directory..."
-cp "$MK_ROOT/bin/harvester-webhook" "$MK_ROOT/package/harvester-webhook"
+cp "${MK_ROOT}/bin/harvester-webhook" "${MK_ROOT}/package/harvester-webhook"
 
 # Build final image
 echo "Building final image..."
 docker build \
-    --progress="$MK_DOCKER_PROGRESS" \
-    -f "$MK_ROOT/package/Dockerfile.webhook" \
-    -t "$HARVESTER_REPO/harvester-webhook:$HARVESTER_TAG" \
-    "$MK_ROOT/package/"
+    --progress="${MK_DOCKER_PROGRESS}" \
+    -f "${MK_ROOT}/package/Dockerfile.webhook" \
+    -t "${IMAGE}" \
+    "${MK_ROOT}/package/"
 
 # Tag with additional tag
-echo "Tagging image..."
-docker tag \
-    "$HARVESTER_REPO/harvester-webhook:$HARVESTER_TAG" \
-    "$HARVESTER_REPO/harvester-webhook:$HARVESTER_IMAGE_PUSH_TAG"
+echo "Creating ${IMAGE_PUSH} that refers to ${IMAGE}"
+docker tag "${IMAGE}" "${IMAGE_PUSH}"
 
-echo "Package complete: $HARVESTER_REPO/harvester-webhook:$HARVESTER_TAG"
+DOCKER_CONFIG="${MK_ROOT}/.docker"
+if [[ -n ${PUSH} ]]; then
+  echo "Pushing to ${IMAGE_PUSH}"
+  docker --config="${DOCKER_CONFIG}" push "${IMAGE_PUSH}"
+  echo "Pushed ${IMAGE_PUSH}"
+fi
+
+echo "Package complete: ${IMAGE}"
