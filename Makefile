@@ -26,7 +26,7 @@ export MK_ADDONS_IMAGE MK_BUNDLE_BUILDER_IMAGE MK_BUNDLE_IMAGE MK_ENV_FILE MK_EN
 
 HOST_ARCH              := $(shell uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 
-.PHONY: builder-image pull-addons harvester-binaries build build-installer bundle-builder-image \
+.PHONY: $(MK_ENV_FILE) builder-image pull-addons harvester-binaries build build-installer bundle-builder-image \
 	build-bundle package package-harvester package-harvester-webhook package-harvester-upgrade ci \
 	arm clean default generate-addons
 
