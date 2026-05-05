@@ -182,6 +182,11 @@ The `bundle-builder` stage (built from `MK_BUILDER_IMAGE`) is tagged as `MK_BUND
   MK_REPO_ID := $(shell echo -n "$(ROOT)$$(cat /etc/machine-id 2>/dev/null)" | sha256sum | cut -c1-8)
   export MK_REPO_ID
   ```
+- `MK_DOCKER_PROGRESS` controls BuildKit progress output and must default to `plain` (not `auto`). `plain` is required for CI legibility and for local terminals that don't support TTY progress rendering:
+  ```makefile
+  MK_DOCKER_PROGRESS ?= plain
+  export MK_DOCKER_PROGRESS
+  ```
 - `DOCKER_BUILD` variable holds common flags:
   ```makefile
   DOCKER_BUILD = docker build \
