@@ -133,15 +133,23 @@ func newManagedChart(namespace, name string) *mgmtv3.ManagedChart {
 	}
 }
 
-func newManagedChartWithComparePatches(namespace, name string, patches []fleet.ComparePatch) *mgmtv3.ManagedChart {
+func newManagedChartWithKubevirtValuesOverride(namespace, name string) *mgmtv3.ManagedChart {
 	return &mgmtv3.ManagedChart{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
 			Name:      name,
 		},
 		Spec: mgmtv3.ManagedChartSpec{
-			Diff: &fleet.DiffOptions{
-				ComparePatches: patches,
+			Values: &fleet.GenericMap{
+				Data: map[string]interface{}{
+					"kubevirt": map[string]interface{}{
+						"spec": map[string]interface{}{
+							"workloadUpdateStrategy": map[string]interface{}{
+								"workloadUpdateMethods": []interface{}{},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -301,7 +309,7 @@ func TestUpgradeHandler_OnChanged(t *testing.T) {
 			},
 		},
 		{
-			name: "kubevirt comparePatches should be removed after cleanup",
+			name: "kubevirt workload update methods should be restored in managedchart values after upgrade",
 			given: input{
 				key: testUpgradeName,
 				upgrade: newTestUpgradeBuilder().
@@ -313,34 +321,10 @@ func TestUpgradeHandler_OnChanged(t *testing.T) {
 					ChartUpgradeStatus(v1.ConditionTrue, "", "").
 					NodesUpgradedCondition(v1.ConditionTrue, "", "").
 					WithAnnotation(imageCleanupPlanCompletedAnnotation, strconv.FormatBool(true)).Build(),
-				version:  newVersionBuilder(testVersion).Build(),
-				vmi:      newTestExistingVirtualMachineImage(upgradeNamespace, testUpgradeImage),
-				cluster:  newCluster(util.FleetLocalNamespaceName, util.LocalClusterName),
-				kubevirt: newKubeVirt(util.HarvesterSystemNamespaceName, util.KubeVirtObjectName),
-				managedChart: newManagedChartWithComparePatches(util.FleetLocalNamespaceName, util.HarvesterManagedChart, []fleet.ComparePatch{
-					{
-						APIVersion: "kubevirt.io/v1",
-						Kind:       "KubeVirt",
-						Name:       util.KubeVirtObjectName,
-						Namespace:  util.HarvesterSystemNamespaceName,
-						Operations: []fleet.Operation{
-							{
-								Op:    "replace",
-								Path:  "/spec/workloadUpdateStrategy/workloadUpdateMethods",
-								Value: "[]",
-							},
-							{
-								Op:    "replace",
-								Path:  "/spec/someOtherField",
-								Value: "test",
-							},
-						},
-						JsonPointers: []string{
-							"/spec/workloadUpdateStrategy/workloadUpdateMethods",
-							"/spec/someOtherField",
-						},
-					},
-				}),
+				version:      newVersionBuilder(testVersion).Build(),
+				vmi:          newTestExistingVirtualMachineImage(upgradeNamespace, testUpgradeImage),
+				cluster:      newCluster(util.FleetLocalNamespaceName, util.LocalClusterName),
+				managedChart: newManagedChartWithKubevirtValuesOverride(util.FleetLocalNamespaceName, util.HarvesterManagedChart),
 				nodes: []*v1.Node{
 					newNodeBuilder("node-1").Managed().ControlPlane().Build(),
 					newNodeBuilder("node-2").Managed().ControlPlane().Build(),
@@ -359,46 +343,19 @@ func TestUpgradeHandler_OnChanged(t *testing.T) {
 					WithAnnotation(imageCleanupPlanCompletedAnnotation, strconv.FormatBool(true)).
 					WithAnnotation(longhornSettingsRestoredAnnotation, strconv.FormatBool(true)).
 					WithLabel(upgradeCleanupLabel, StateSucceeded).Build(),
-				kubevirt: &kubevirtv1.KubeVirt{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: util.HarvesterSystemNamespaceName,
-						Name:      util.KubeVirtObjectName,
-					},
-					Spec: kubevirtv1.KubeVirtSpec{
-						WorkloadUpdateStrategy: kubevirtv1.KubeVirtWorkloadUpdateStrategy{
-							WorkloadUpdateMethods: []kubevirtv1.WorkloadUpdateMethod{
-								kubevirtv1.WorkloadUpdateMethodLiveMigrate,
-							},
-						},
-					},
-				},
 				managedChart: &mgmtv3.ManagedChart{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: util.FleetLocalNamespaceName,
 						Name:      util.HarvesterManagedChart,
 					},
 					Spec: mgmtv3.ManagedChartSpec{
-						Diff: &fleet.DiffOptions{
-							ComparePatches: []fleet.ComparePatch{
-								{
-									APIVersion: "kubevirt.io/v1",
-									Kind:       "KubeVirt",
-									Name:       util.KubeVirtObjectName,
-									Namespace:  util.HarvesterSystemNamespaceName,
-									Operations: []fleet.Operation{
-										{
-											Op:    "replace",
-											Path:  "/spec/workloadUpdateStrategy/workloadUpdateMethods",
-											Value: "[]",
+						Values: &fleet.GenericMap{
+							Data: map[string]interface{}{
+								"kubevirt": map[string]interface{}{
+									"spec": map[string]interface{}{
+										"workloadUpdateStrategy": map[string]interface{}{
+											"workloadUpdateMethods": []interface{}{"LiveMigrate"},
 										},
-										{
-											Op:    "replace",
-											Path:  "/spec/someOtherField",
-											Value: "test",
-										},
-									},
-									JsonPointers: []string{
-										"/spec/someOtherField",
 									},
 								},
 							},
@@ -510,8 +467,9 @@ func TestUpgradeHandler_OnChanged(t *testing.T) {
 		if tc.expected.managedChart != nil {
 			var err error
 			actual.managedChart, err = handler.managedChartClient.Get(tc.expected.managedChart.Namespace, tc.expected.managedChart.Name, metav1.GetOptions{})
-			assert.Nil(t, err)
-			assert.Equal(t, tc.expected.managedChart.Spec.Diff.ComparePatches, actual.managedChart.Spec.Diff.ComparePatches, "case %q: managedChart comparePatches mismatch", tc.name)
+			if assert.Nil(t, err, "case %q: managedChart get error", tc.name) {
+				assert.Equal(t, tc.expected.managedChart.Spec.Values, actual.managedChart.Spec.Values, "case %q: managedChart values mismatch", tc.name)
+			}
 		}
 	}
 }
