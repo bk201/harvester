@@ -1060,6 +1060,54 @@ EOF
   wait_managed_chart fleet-local harvester-crd $REPO_HARVESTER_CHART_VERSION $pre_generation_harvester_crd ready
 }
 
+# update values to disable workload live migration. The managedchart is unpaused to propogate the change.
+# pause the managedchart again for real harvester managedchart upgrade later.
+disable_kubevirt_workload_live_migration() {
+  echo "Checking KubeVirt workload live migration settings"
+
+  local chart_yaml
+  chart_yaml=$(kubectl get managedcharts.management.cattle.io harvester -n fleet-local -o yaml)
+
+  local methods
+  methods=$(echo "$chart_yaml" | yq e '.spec.values.kubevirt.spec.workloadUpdateStrategy.workloadUpdateMethods' -)
+
+  if [ "$methods" = "[]" ]; then
+    echo "KubeVirt workloadUpdateMethods is already empty. No action required."
+    return 0
+  fi
+
+  echo "KubeVirt workloadUpdateMethods is '$methods'. Patching to []..."
+
+  local pre_generation
+  pre_generation=$(echo "$chart_yaml" | yq e '.status.observedGeneration' -)
+
+  local current_version
+  current_version=$(echo "$chart_yaml" | yq e '.spec.version' -)
+
+  local hpatch=harvester-kubevirt-wum.yaml
+  cat >${hpatch} <<EOF
+spec:
+  values:
+    kubevirt:
+      spec:
+        workloadUpdateStrategy:
+          workloadUpdateMethods: []
+EOF
+
+  update_managedchart_patch_file_annotations ${hpatch} ${current_version}
+  update_managedchart_patch_file_unpause ${hpatch}
+  update_managedchart_patch_file_timeoutseconds ${hpatch} fleet-local harvester
+  echo "The final content of harvester kubevirt workload update methods patch file"
+  cat ${hpatch}
+
+  echo "Patching..."
+  kubectl patch managedcharts.management.cattle.io harvester -n fleet-local --patch-file ./${hpatch} --type merge
+  wait_managed_chart fleet-local harvester "$current_version" "$pre_generation" ready
+
+  echo "Pause the harvester managedchart for later upgrade"
+  pause_managed_chart harvester "true"
+}
+
 upgrade_managedchart_harvester() {
   echo "Upgrading Harvester managedchart fleet-local/harvester"
 
@@ -1084,7 +1132,6 @@ EOF
   fi
 
   patch_longhorn_settings ${hpatch}
-  yq '.spec.values.kubevirt.spec.workloadUpdateStrategy.workloadUpdateMethods = []' -i ${hpatch}
 
   update_managedchart_patch_file_annotations ${hpatch} $REPO_HARVESTER_CHART_VERSION
   update_managedchart_patch_file_unpause ${hpatch}
@@ -1105,7 +1152,6 @@ upgrade_harvester() {
   cd $UPGRADE_TMP_DIR/harvester
 
   upgrade_managedchart_harvester_crd
-
   upgrade_managedchart_harvester
 }
 
@@ -1529,6 +1575,7 @@ pre_upgrade_manifest
 preserve_overcommit_config
 pause_all_charts
 skip_restart_rancher_system_agent
+disable_kubevirt_workload_live_migration
 upgrade_rancher
 patch_local_cluster_details
 update_local_rke_state_secret
