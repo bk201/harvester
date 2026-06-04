@@ -1068,15 +1068,27 @@ disable_kubevirt_workload_live_migration() {
   local chart_yaml
   chart_yaml=$(kubectl get managedcharts.management.cattle.io harvester -n fleet-local -o yaml)
 
-  local methods
-  methods=$(echo "$chart_yaml" | yq e '.spec.values.kubevirt.spec.workloadUpdateStrategy.workloadUpdateMethods' -)
+  # Use tojson to get a clean JSON representation: "null" if key absent, "[]" if empty, or the actual value
+  local methods_json
+  methods_json=$(echo "$chart_yaml" | yq e '.spec.values.kubevirt.spec.workloadUpdateStrategy.workloadUpdateMethods | tojson' -)
 
-  if [ "$methods" = "[]" ]; then
-    echo "KubeVirt workloadUpdateMethods is already empty. No action required."
+  # Backup original value to the upgrade annotation (only write once for idempotency)
+  local annotation_key="harvesterhci.io/kubevirt-workload-update-methods"
+  local existing_backup
+  existing_backup=$(kubectl get upgrades.harvesterhci.io "$HARVESTER_UPGRADE_NAME" -n harvester-system -o yaml | \
+    yq e ".metadata.annotations[\"$annotation_key\"]" -)
+  if [ "$existing_backup" = "null" ]; then
+    echo "Backing up workloadUpdateMethods value '$methods_json' to upgrade annotation"
+    kubectl annotate upgrades.harvesterhci.io "$HARVESTER_UPGRADE_NAME" -n harvester-system \
+      "${annotation_key}=${methods_json}"
+  fi
+
+  if [ "$methods_json" = "[]" ]; then
+    echo "KubeVirt workloadUpdateMethods is already empty. No patching needed."
     return 0
   fi
 
-  echo "KubeVirt workloadUpdateMethods is '$methods'. Patching to []..."
+  echo "KubeVirt workloadUpdateMethods is '$methods_json'. Patching to []..."
 
   local pre_generation
   pre_generation=$(echo "$chart_yaml" | yq e '.status.observedGeneration' -)

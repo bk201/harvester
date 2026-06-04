@@ -772,3 +772,129 @@ func emptyConditionsTime(conditions []harvesterv1.Condition) {
 		conditions[k].LastUpdateTime = ""
 	}
 }
+
+func TestRestoreKubevirtWorkloadUpdateMethodsInValues(t *testing.T) {
+	wumKeys := []string{"kubevirt", "spec", "workloadUpdateStrategy", "workloadUpdateMethods"}
+
+	// helper: build a GenericMap with workloadUpdateMethods set to the given value
+	withMethods := func(v interface{}) *fleet.GenericMap {
+		gm := &fleet.GenericMap{Data: map[string]interface{}{}}
+		util.PutValue(gm.Data, v, "kubevirt", "spec", "workloadUpdateStrategy", "workloadUpdateMethods")
+		return gm
+	}
+
+	// helper: build a GenericMap without the workloadUpdateMethods key
+	withoutMethods := func() *fleet.GenericMap {
+		gm := &fleet.GenericMap{Data: map[string]interface{}{}}
+		util.PutValue(gm.Data, map[string]interface{}{}, "kubevirt", "spec", "workloadUpdateStrategy")
+		return gm
+	}
+
+	tests := []struct {
+		name           string
+		values         *fleet.GenericMap
+		backupJSON     string
+		hasAnnotation  bool
+		wantRestored   bool
+		wantErr        bool
+		wantKeyPresent bool
+		wantValue      interface{}
+	}{
+		{
+			name:          "nil values returns false",
+			values:        nil,
+			backupJSON:    "",
+			hasAnnotation: false,
+			wantRestored:  false,
+		},
+		{
+			name:          "nil values.Data returns false",
+			values:        &fleet.GenericMap{Data: nil},
+			backupJSON:    "",
+			hasAnnotation: false,
+			wantRestored:  false,
+		},
+		{
+			name:           "no annotation, key absent: no-op",
+			values:         withoutMethods(),
+			backupJSON:     "",
+			hasAnnotation:  false,
+			wantRestored:   false,
+			wantKeyPresent: false,
+		},
+		{
+			name:           "no annotation, key present: legacy restore to LiveMigrate",
+			values:         withMethods([]interface{}{}),
+			backupJSON:     "",
+			hasAnnotation:  false,
+			wantRestored:   true,
+			wantKeyPresent: true,
+			wantValue:      []interface{}{string(kubevirtv1.WorkloadUpdateMethodLiveMigrate)},
+		},
+		{
+			name:           "annotation null, key absent: no-op",
+			values:         withoutMethods(),
+			backupJSON:     "null",
+			hasAnnotation:  true,
+			wantRestored:   false,
+			wantKeyPresent: false,
+		},
+		{
+			name:           "annotation null, key present: delete key",
+			values:         withMethods([]interface{}{}),
+			backupJSON:     "null",
+			hasAnnotation:  true,
+			wantRestored:   true,
+			wantKeyPresent: false,
+		},
+		{
+			name:           "annotation [], restore to empty array",
+			values:         withMethods([]interface{}{string(kubevirtv1.WorkloadUpdateMethodLiveMigrate)}),
+			backupJSON:     "[]",
+			hasAnnotation:  true,
+			wantRestored:   true,
+			wantKeyPresent: true,
+			wantValue:      []interface{}{},
+		},
+		{
+			name:           "annotation [Evict], restore to Evict",
+			values:         withMethods([]interface{}{}),
+			backupJSON:     `["Evict"]`,
+			hasAnnotation:  true,
+			wantRestored:   true,
+			wantKeyPresent: true,
+			wantValue:      []interface{}{string(kubevirtv1.WorkloadUpdateMethodEvict)},
+		},
+		{
+			name:          "invalid JSON annotation returns error",
+			values:        withMethods([]interface{}{}),
+			backupJSON:    `not-valid-json`,
+			hasAnnotation: true,
+			wantRestored:  false,
+			wantErr:       true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			restored, err := restoreKubevirtWorkloadUpdateMethodsInValues(tc.values, tc.backupJSON, tc.hasAnnotation)
+
+			if tc.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tc.wantRestored, restored)
+
+			if tc.values == nil || tc.values.Data == nil {
+				return
+			}
+
+			got, exists := util.GetValue(tc.values.Data, wumKeys...)
+			assert.Equal(t, tc.wantKeyPresent, exists, "key presence mismatch")
+			if tc.wantKeyPresent {
+				assert.Equal(t, tc.wantValue, got)
+			}
+		})
+	}
+}
