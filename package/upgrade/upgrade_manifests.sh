@@ -635,8 +635,6 @@ get_cluster_repo_index_download_time() {
   fi
 }
 
-<<<<<<< HEAD
-=======
 # Force refresh a clusterrepo catalog index by setting forceUpdate to a past timestamp
 # See https://github.com/rancher/rancher/blob/47c22388c5451c74f55e162d1e60b4e6dcfd0800/pkg/controllers/dashboard/helm/repo.go#L290-L294
 # for why this would trigger a force upgrade
@@ -679,17 +677,6 @@ force_refresh_clusterrepo() {
   echo "Clusterrepo $repo_name catalog index updated."
 }
 
-# The legacy capi webhooks will cause Rancher pod prints errors after upgraded to v1.8.0
-clean_capi_legacy_webhooks() {
-  if [[ ! "$UPGRADE_PREVIOUS_VERSION" =~ ^v1\.7\.[0-9]$ ]]; then
-    return
-  fi
-  echo "clean capi legay webhooks which are not used from Harvester v1.8.0"
-  kubectl delete mutatingwebhookconfigurations mutating-webhook-configuration --ignore-not-found
-  kubectl delete validatingwebhookconfiguration validating-webhook-configuration --ignore-not-found
-}
-
->>>>>>> 29f5576e (fix: refresh rancher-charts clusterrepo after upgrading rancher)
 upgrade_rancher() {
   echo "Upgrading Rancher"
 
