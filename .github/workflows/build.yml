@@ -41,8 +41,7 @@ jobs:
     uses: ./.github/workflows/e2e-tests.yml
     with:
       build_version: ${{ needs.configure_input_vars.outputs.branch }}-${{ needs.configure_input_vars.outputs.sha_short }}-head
-      # TODO: varies by environment
-      registry: 10.0.100.1:5000
+      registry: 172.17.0.1:5000
       insecure_registry: true
       registry_as_mirror: true
 
